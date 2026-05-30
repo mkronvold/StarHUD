@@ -1623,7 +1623,7 @@ OpenConfigEditor() {
     configDisplayNames := GetConfigDisplayNames(configFileNames)
     sizeOptions := GetSizeProfileOptions()
     openPositionOptions := ["auto-split", "mouse", "always-left", "always-right"]
-    configGui := Gui("+AlwaysOnTop +ToolWindow", "StarHUD Config")
+    configGui := Gui("+AlwaysOnTop +ToolWindow +OwnDialogs", "StarHUD Config")
     configGui.MarginX := 12
     configGui.MarginY := 10
 
