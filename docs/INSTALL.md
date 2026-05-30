@@ -9,12 +9,13 @@ Put all of the project files in one folder on your Windows machine, for example:
 Keep these files together in that same folder:
 
 - `StarHUD.ahk`
+- `StarHUD-active-config.ahk`
 - `StarHUD-config.ahk`
 - `star-citizen-logo-bright.png`
 - `StarHUD-center-logo.png`
 - `StarHUD-center-logo.ico`
 
-`StarHUD.ahk` reads `StarHUD-config.ahk` from its own folder, and the center-logo image paths are also resolved relative to that same folder.
+`StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder through `StarHUD-active-config.ahk`, and the center-logo image paths are also resolved relative to that same folder.
 
 ## Install AutoHotkey
 
@@ -26,6 +27,8 @@ Keep these files together in that same folder:
 1. Open `StarHUD-config.ahk`.
 2. Set your preferred `Size`, `OpenPositionMode`, colors, and button bindings.
 3. Double-click `StarHUD.ahk` to start the HUD.
+
+You can add more config profiles later from the in-app config dialog without moving files into a separate folder.
 
 ## Optional: map F20 to a mouse button
 

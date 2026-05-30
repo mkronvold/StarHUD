@@ -1,6 +1,6 @@
 # Configure StarHUD
 
-StarHUD supports both direct file editing in `StarHUD-config.ahk` and in-app editing through the HUD.
+StarHUD supports both direct file editing in `StarHUD-config*.ahk` files and in-app editing through the HUD.
 
 ## Access the config dialogs
 
@@ -27,6 +27,13 @@ While layout edit mode is active, hold `RAlt` and click any non-center button. T
 Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 ## What the config dialog controls
+
+### Config profiles
+
+- **Config file**: chooses which `StarHUD-config*.ahk` profile StarHUD should use. Switching profiles reloads StarHUD into the selected config.
+- **New Config**: creates a fresh config profile with the current global settings and a new empty page, then switches to it.
+- **Clone Config**: copies the current config profile to a new `StarHUD-config-<name>.ahk` file, then switches to it.
+- **Delete Config**: deletes the active config profile after writing a `.bak` backup, then switches to another remaining profile.
 
 ### HUD-wide settings
 
@@ -57,7 +64,7 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 ## Persistence
 
-Changes made through the config dialog and button editor are written back to `StarHUD-config.ahk`, so the next launch uses the updated layout and settings.
+Changes made through the config dialog and button editor are written back to the active `StarHUD-config*.ahk` file, so the next launch uses the updated layout and settings.
 
 ## Visual overview
 

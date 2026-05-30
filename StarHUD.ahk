@@ -6,10 +6,11 @@ InstallKeybdHook()
 DetectHiddenWindows True
 CoordMode "Mouse", "Screen"
 
-; Editable settings and button/page layout live in StarHUD-config.ahk.
-#Include StarHUD-config.ahk
+; Editable settings and button/page layout live in the active StarHUD config file.
+#Include StarHUD-active-config.ahk
 
-ConfigFilePath := A_ScriptDir "\StarHUD-config.ahk"
+ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
+ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
 ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
 ManagedLayoutEndMarker := "; === MANAGED BUTTON LAYOUT END ==="
 GridRows := ButtonPages[1].Length
@@ -551,6 +552,163 @@ ArrayJoin(values, separator := "") {
     return text
 }
 
+GetConfigFilePath(fileName := "") {
+    global ConfigFilePath
+
+    if fileName = ""
+        return ConfigFilePath
+    return A_ScriptDir "\" fileName
+}
+
+GetConfigDisplayName(fileName) {
+    return RegExReplace(Format("{}", fileName), "\.ahk$")
+}
+
+GetConfigDisplayNames(fileNames) {
+    displayNames := []
+    for _, fileName in fileNames
+        displayNames.Push(GetConfigDisplayName(fileName))
+    return displayNames
+}
+
+GetAvailableConfigFiles() {
+    defaultFileName := ""
+    otherFileNames := []
+
+    Loop Files, A_ScriptDir "\StarHUD-config*.ahk"
+    {
+        if A_LoopFileName = "StarHUD-active-config.ahk"
+            continue
+        if A_LoopFileName = "StarHUD-config.ahk"
+            defaultFileName := A_LoopFileName
+        else
+            otherFileNames.Push(A_LoopFileName)
+    }
+
+    configFileNames := []
+    if defaultFileName != ""
+        configFileNames.Push(defaultFileName)
+    for _, fileName in otherFileNames
+        configFileNames.Push(fileName)
+    if configFileNames.Length = 0
+        throw Error("No StarHUD config files were found in " A_ScriptDir ".")
+    return configFileNames
+}
+
+ResolveConfigFileNameFromDisplay(displayName, fileNames) {
+    targetDisplayName := Format("{}", displayName)
+    for _, fileName in fileNames
+    {
+        if GetConfigDisplayName(fileName) = targetDisplayName
+            return fileName
+    }
+    return ""
+}
+
+NormalizeConfigFileNameInput(rawValue) {
+    nameText := Trim(Format("{}", rawValue))
+    if nameText = ""
+        throw Error("Config name cannot be blank.")
+
+    normalizedText := RegExReplace(nameText, "i)\.ahk$")
+    if RegExMatch(normalizedText, "i)^StarHUD-config(?:-([A-Za-z0-9_-]+))?$", &match)
+    {
+        suffix := match[1]
+        return suffix = "" ? "StarHUD-config.ahk" : "StarHUD-config-" suffix ".ahk"
+    }
+
+    if !RegExMatch(normalizedText, "^[A-Za-z0-9_-]+$")
+        throw Error("Config names may only use letters, numbers, dashes, and underscores.")
+    return "StarHUD-config-" normalizedText ".ahk"
+}
+
+PromptForConfigFileName(actionLabel) {
+    result := InputBox(
+        actionLabel " config name:`n`nUse letters, numbers, dashes, or underscores. StarHUD will save it as StarHUD-config-<name>.ahk.",
+        "StarHUD Config",
+        "w420 h160"
+    )
+    if result.Result != "OK"
+        return ""
+    return NormalizeConfigFileNameInput(result.Value)
+}
+
+WriteActiveConfigLoader(fileName) {
+    global ActiveConfigFileName, ConfigFilePath, ConfigLoaderPath
+
+    loaderLines := [
+        "; Auto-generated active StarHUD config selector."
+        , "; Use the StarHUD config dialog to switch between config files."
+        , "ActiveConfigFileName := " SerializeAhkString(fileName)
+        , "#Include " fileName
+    ]
+    loaderFile := FileOpen(ConfigLoaderPath, "w", "UTF-8")
+    if !IsObject(loaderFile)
+        throw Error("Could not open config loader for writing: " ConfigLoaderPath)
+    loaderFile.Write(ArrayJoin(loaderLines, "`r`n") "`r`n")
+    loaderFile.Close()
+    ActiveConfigFileName := fileName
+    ConfigFilePath := GetConfigFilePath(fileName)
+}
+
+SaveConfigStateForSwitch() {
+    ApplyConfigDialogValues()
+    ApplyCurrentSizeProfile()
+    WriteConfigStateToFile()
+}
+
+CreateClonedConfigFile(targetFileName) {
+    sourcePath := GetConfigFilePath()
+    targetPath := GetConfigFilePath(targetFileName)
+
+    if FileExist(targetPath)
+        throw Error("Config already exists: " targetFileName)
+    FileCopy(sourcePath, targetPath, false)
+}
+
+CreateNewConfigFile(targetFileName) {
+    global ButtonPages, CurrentPageIndex
+
+    targetPath := GetConfigFilePath(targetFileName)
+    if FileExist(targetPath)
+        throw Error("Config already exists: " targetFileName)
+
+    FileCopy(GetConfigFilePath(), targetPath, false)
+    originalPages := ButtonPages
+    originalPageIndex := CurrentPageIndex
+    try
+    {
+        ButtonPages := [CreateEmptyPageLayout()]
+        CurrentPageIndex := 1
+        WriteConfigStateToFile(false, targetPath)
+    }
+    finally
+    {
+        ButtonPages := originalPages
+        CurrentPageIndex := originalPageIndex
+    }
+}
+
+GetAlternateConfigFileName(excludedFileName) {
+    for _, fileName in GetAvailableConfigFiles()
+    {
+        if fileName != excludedFileName
+            return fileName
+    }
+    throw Error("StarHUD must keep at least one config file.")
+}
+
+SwitchToConfigFile(targetFileName) {
+    global ActiveConfigFileName
+
+    if targetFileName = "" || targetFileName = ActiveConfigFileName
+        return
+    if !FileExist(GetConfigFilePath(targetFileName))
+        throw Error("Config file not found: " targetFileName)
+    WriteActiveConfigLoader(targetFileName)
+    Reload()
+}
+
 ReplaceManagedLayoutBlock(configText) {
     global ConfigFilePath, ManagedLayoutEndMarker, ManagedLayoutStartMarker
 
@@ -572,10 +730,10 @@ ReplaceConfigAssignment(configText, keyName, valueText) {
     return replacedText
 }
 
-BackupConfigFile() {
-    global ConfigFilePath
-
-    FileCopy(ConfigFilePath, ConfigFilePath ".bak", true)
+BackupConfigFile(filePath := "") {
+    if filePath = ""
+        filePath := GetConfigFilePath()
+    FileCopy(filePath, filePath ".bak", true)
 }
 
 SerializeSizeConfigValue(sizeValue) {
@@ -585,12 +743,14 @@ SerializeSizeConfigValue(sizeValue) {
     return SerializeAhkString(sizeText)
 }
 
-WriteConfigStateToFile(createBackup := false) {
-    global ConfigFilePath, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
+WriteConfigStateToFile(createBackup := false, filePath := "") {
+    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
 
-    configText := FileRead(ConfigFilePath, "UTF-8")
+    if filePath = ""
+        filePath := GetConfigFilePath()
+    configText := FileRead(filePath, "UTF-8")
     if createBackup
-        BackupConfigFile()
+        BackupConfigFile(filePath)
 
     configText := ReplaceConfigAssignment(configText, "Size", SerializeSizeConfigValue(Size))
     configText := ReplaceConfigAssignment(configText, "CornerRadius", CornerRadius + 0)
@@ -601,9 +761,9 @@ WriteConfigStateToFile(createBackup := false) {
     configText := ReplaceConfigAssignment(configText, "StealMouseInput", BoolToAhk(StealMouseInput))
     configText := ReplaceManagedLayoutBlock(configText)
 
-    file := FileOpen(ConfigFilePath, "w", "UTF-8")
+    file := FileOpen(filePath, "w", "UTF-8")
     if !IsObject(file)
-        throw Error("Could not open config file for writing: " ConfigFilePath)
+        throw Error("Could not open config file for writing: " filePath)
     file.Write(configText)
     file.Close()
 }
@@ -1457,15 +1617,25 @@ GetSizeProfileOptions() {
 }
 
 OpenConfigEditor() {
-    global ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
+    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
 
+    configFileNames := GetAvailableConfigFiles()
+    configDisplayNames := GetConfigDisplayNames(configFileNames)
     sizeOptions := GetSizeProfileOptions()
     openPositionOptions := ["auto-split", "mouse", "always-left", "always-right"]
     configGui := Gui("+AlwaysOnTop +ToolWindow", "StarHUD Config")
     configGui.MarginX := 12
     configGui.MarginY := 10
 
-    configGui.Add("Text", "xm", "Current page")
+    configGui.Add("Text", "xm", "Config file")
+    configList := configGui.Add("DropDownList", "xm w220", configDisplayNames)
+    ChooseDropDownValue(configList, GetConfigDisplayName(ActiveConfigFileName), configDisplayNames)
+    configGui.Add("Text", "xm y+2 c808080", "Switches the active config profile and reloads StarHUD.")
+    newConfigButton := configGui.Add("Button", "xm y+10 w90", "New Config")
+    cloneConfigButton := configGui.Add("Button", "x+8 w90", "Clone Config")
+    deleteConfigButton := configGui.Add("Button", "x+8 w90", "Delete Config")
+
+    configGui.Add("Text", "xm y+12", "Current page")
     pageInfoText := configGui.Add("Text", "x+8 yp w160", "")
 
     configGui.Add("Text", "xm y+10", "Size")
@@ -1510,6 +1680,10 @@ OpenConfigEditor() {
 
     ConfigDialogState := {
         gui: configGui,
+        configList: configList,
+        configFileNames: configFileNames,
+        configDisplayNames: configDisplayNames,
+        suppressConfigSwitch: false,
         pageInfoText: pageInfoText,
         sizeList: sizeList,
         cornerRadiusEdit: cornerRadiusEdit,
@@ -1523,6 +1697,10 @@ OpenConfigEditor() {
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
     fillColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("fillColorEdit"))
+    configList.OnEvent("Change", SwitchConfigFromDialog)
+    newConfigButton.OnEvent("Click", NewConfigFromDialog)
+    cloneConfigButton.OnEvent("Click", CloneConfigFromDialog)
+    deleteConfigButton.OnEvent("Click", DeleteConfigFromDialog)
     addPageButton.OnEvent("Click", AddConfigPage)
     deletePageButton.OnEvent("Click", DeleteConfigPage)
     resetPageButton.OnEvent("Click", ResetConfigPage)
@@ -1542,6 +1720,105 @@ UpdateConfigDialogPageInfo() {
         return
 
     ConfigDialogState.pageInfoText.Text := "Page " CurrentPageIndex " of " ButtonPages.Length
+}
+
+GetSelectedConfigDialogFileName() {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return ""
+    return ResolveConfigFileNameFromDisplay(ConfigDialogState.configList.Text, ConfigDialogState.configFileNames)
+}
+
+RestoreConfigDialogSelection() {
+    global ActiveConfigFileName, ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+    ConfigDialogState.suppressConfigSwitch := true
+    ChooseDropDownValue(ConfigDialogState.configList, GetConfigDisplayName(ActiveConfigFileName), ConfigDialogState.configDisplayNames)
+    ConfigDialogState.suppressConfigSwitch := false
+}
+
+SwitchConfigFromDialog(*) {
+    global ActiveConfigFileName, ConfigDialogState
+
+    if IsObject(ConfigDialogState) && ConfigDialogState.suppressConfigSwitch
+        return
+
+    targetFileName := GetSelectedConfigDialogFileName()
+    if targetFileName = "" || targetFileName = ActiveConfigFileName
+        return
+
+    try
+    {
+        SaveConfigStateForSwitch()
+        SwitchToConfigFile(targetFileName)
+    }
+    catch as err
+    {
+        RestoreConfigDialogSelection()
+        MsgBox(err.Message, "StarHUD Config Error")
+    }
+}
+
+NewConfigFromDialog(*) {
+    try
+    {
+        targetFileName := PromptForConfigFileName("New")
+        if targetFileName = ""
+            return
+        SaveConfigStateForSwitch()
+        CreateNewConfigFile(targetFileName)
+        SwitchToConfigFile(targetFileName)
+    }
+    catch as err
+    {
+        MsgBox(err.Message, "StarHUD Config Error")
+    }
+}
+
+CloneConfigFromDialog(*) {
+    try
+    {
+        targetFileName := PromptForConfigFileName("Clone")
+        if targetFileName = ""
+            return
+        SaveConfigStateForSwitch()
+        CreateClonedConfigFile(targetFileName)
+        SwitchToConfigFile(targetFileName)
+    }
+    catch as err
+    {
+        MsgBox(err.Message, "StarHUD Config Error")
+    }
+}
+
+DeleteConfigFromDialog(*) {
+    global ActiveConfigFileName
+
+    if GetAvailableConfigFiles().Length <= 1
+    {
+        MsgBox("StarHUD must keep at least one config file.", "StarHUD Config")
+        return
+    }
+    if MsgBox("Delete the current config file and save a .bak copy first?", "StarHUD Config", "YesNo Icon!") != "Yes"
+    {
+        RestoreConfigDialogSelection()
+        return
+    }
+
+    try
+    {
+        nextFileName := GetAlternateConfigFileName(ActiveConfigFileName)
+        BackupConfigFile()
+        FileDelete(GetConfigFilePath())
+        SwitchToConfigFile(nextFileName)
+    }
+    catch as err
+    {
+        MsgBox(err.Message, "StarHUD Config Error")
+    }
 }
 
 PickConfigDialogColor(controlKey, *) {

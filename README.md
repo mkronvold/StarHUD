@@ -28,6 +28,7 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 ## Features
 
 - Config-driven multi-page button layout
+- Multiple config profiles with in-app switching
 - Automatic shortcut labels generated from the configured action
 - Screen-size profiles with optional auto-detection
 - Popup positioning modes: `mouse`, `auto-split`, `always-left`, and `always-right`
@@ -43,7 +44,8 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 ## Files
 
 - `StarHUD.ahk` - main runtime script
-- `StarHUD-config.ahk` - user-editable settings, pages, and button definitions
+- `StarHUD-active-config.ahk` - selects which config profile StarHUD loads
+- `StarHUD-config.ahk` and `StarHUD-config-*.ahk` - user-editable settings, pages, and button definitions
 - `star-citizen-logo-bright.png` - default center button image
 - `StarHUD-center-logo.png` - alternate logo image included with the project
 - `StarHUD-center-logo.ico` - icon file for Windows shortcuts
@@ -52,7 +54,7 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 
 1. Install AutoHotkey v2.
 2. Download or clone this repository.
-3. Edit `StarHUD-config.ahk` to match your preferred size profile, colors, popup mode, and button bindings, or use the in-app dialogs described in [docs/CONFIG.md](docs/CONFIG.md).
+3. Edit the active `StarHUD-config*.ahk` file to match your preferred size profile, colors, popup mode, and button bindings, or use the in-app dialogs described in [docs/CONFIG.md](docs/CONFIG.md).
 4. Run `StarHUD.ahk`.
 
 ## Default controls
@@ -66,11 +68,11 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 
 ## Customizing
 
-Most customization happens in `StarHUD-config.ahk`.
+Most customization happens in the active `StarHUD-config*.ahk` file.
 
 - Change `Size` to use a built-in profile or add your own custom lettered profile.
 - Change `OpenPositionMode` to control where the HUD appears.
 - Change `StealMouseInput` if you want the HUD to intercept mouse input while visible.
 - Edit the managed page layout block to define buttons, colors, and actions.
 
-The script also supports editing the layout live from the HUD. Swaps, button edits, and page changes are written back to `StarHUD-config.ahk`.
+The script also supports editing the layout live from the HUD. Swaps, button edits, page changes, and config-profile changes are written back to the active `StarHUD-config*.ahk` file.
