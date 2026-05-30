@@ -54,9 +54,9 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 ## What the button editor controls
 
-- **Button name**: multiline title field for the label shown on the button.
+- **Button name**: multiline title field for the label shown on the button. The line breaks you type here control how many title lines the button uses.
 - **Border color / text color / line color**: per-button colors, with direct hex entry and picker buttons.
-- **Title line mode**: single-line or double-line title display.
+- **Border style**: choose whether the button uses a single or double border.
 - **Action type**: choose between `SendKey`, `ChordKey`, `HoldKey`, `DoubleTapKey`, or no action.
 - **Action key fields**: define the keys or modifier+key combination used by the selected action.
 - **Duration / delay**: shown only for action types that need them.

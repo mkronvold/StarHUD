@@ -130,9 +130,21 @@ PrepareSendKeyInput(keyValue) {
 }
 
 NormalizeConfigTitle(text) {
-    normalizedText := RegExReplace(Format("{}", text), "\s*`n\s*", " ")
-    normalizedText := RegExReplace(normalizedText, "\s+", " ")
-    return Trim(normalizedText)
+    normalizedText := Format("{}", text)
+    normalizedText := StrReplace(normalizedText, "`r`n", "`n")
+    normalizedText := StrReplace(normalizedText, "`r", "`n")
+
+    normalizedLines := []
+    for _, lineText in StrSplit(normalizedText, "`n")
+    {
+        lineText := RegExReplace(lineText, "\s+", " ")
+        lineText := Trim(lineText)
+        if lineText != ""
+            normalizedLines.Push(lineText)
+    }
+    if normalizedLines.Length = 0
+        return ""
+    return ArrayJoin(normalizedLines, "`n")
 }
 
 InferTitleLineMode(text) {
@@ -377,6 +389,8 @@ FormatButtonTitle(titleText, titleLineMode) {
     normalizedTitle := NormalizeConfigTitle(titleText)
     if normalizedTitle = ""
         return ""
+    if InStr(normalizedTitle, "`n")
+        return normalizedTitle
     if titleLineMode = "double"
         return SplitTitleToTwoLines(normalizedTitle)
     return normalizedTitle
@@ -539,7 +553,12 @@ SerializeKeyLiteral(keyValue) {
 }
 
 SerializeAhkString(value) {
-    return '"' StrReplace(Format("{}", value), '"', '""') '"'
+    escapedValue := Format("{}", value)
+    escapedValue := StrReplace(escapedValue, "`r`n", "`n")
+    escapedValue := StrReplace(escapedValue, "`r", "`n")
+    escapedValue := StrReplace(escapedValue, "`n", "``n")
+    escapedValue := StrReplace(escapedValue, '"', '""')
+    return '"' escapedValue '"'
 }
 
 BoolToAhk(value) {
@@ -1260,10 +1279,10 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
     borderColorEdit := editorGui.Add("Edit", "xm w120", cfg.borderColor)
     borderColorPickButton := editorGui.Add("Button", "x+8 yp-2 w54", "Pick")
 
-    lineModeOptions := ["single", "double"]
-    editorGui.Add("Text", "xm y+8", "Title line mode")
-    lineModeList := editorGui.Add("DropDownList", "xm w160", lineModeOptions)
-    ChooseDropDownValue(lineModeList, cfg.titleLineMode, lineModeOptions)
+    borderStyleOptions := ["single", "double"]
+    editorGui.Add("Text", "xm y+8", "Border style")
+    borderStyleList := editorGui.Add("DropDownList", "xm w160", borderStyleOptions)
+    ChooseDropDownValue(borderStyleList, cfg.doubleBorder ? "double" : "single", borderStyleOptions)
 
     actionTypeOptions := ["None", "SendKey", "ChordKey", "HoldKey", "DoubleTapKey", "PageCycle"]
     editorGui.Add("Text", "xm y+8", "Action type")
@@ -1297,7 +1316,7 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
         nameEdit: nameEdit,
         textColorEdit: textColorEdit,
         borderColorEdit: borderColorEdit,
-        lineModeList: lineModeList,
+        borderStyleList: borderStyleList,
         actionTypeList: actionTypeList,
         key1Label: key1Label,
         key1Edit: key1Edit,
@@ -1344,14 +1363,13 @@ FormatButtonTitleForEditor(cfg) {
     return FormatButtonTitle(cfg.text, cfg.titleLineMode)
 }
 
-ParseButtonTitleFromEditor(titleText, selectedLineMode) {
+ParseButtonTitleFromEditor(titleText) {
     convertedTitle := Format("{}", titleText)
     convertedTitle := StrReplace(convertedTitle, "`r`n", "`n")
     convertedTitle := StrReplace(convertedTitle, "``n", "`n")
-    resolvedLineMode := InStr(convertedTitle, "`n") ? "double" : selectedLineMode
     return {
         text: convertedTitle,
-        lineMode: resolvedLineMode
+        lineMode: InferTitleLineMode(convertedTitle)
     }
 }
 
@@ -1469,7 +1487,7 @@ SaveButtonEditor(*) {
     try
     {
         cfg := ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col]
-        titleInfo := ParseButtonTitleFromEditor(EditDialogState.nameEdit.Value, EditDialogState.lineModeList.Text)
+        titleInfo := ParseButtonTitleFromEditor(EditDialogState.nameEdit.Value)
         updatedCfg := ButtonCfg(
             titleInfo.text,
             CreateActionFromEditor(
@@ -1481,7 +1499,7 @@ SaveButtonEditor(*) {
             ),
             NormalizeColorInput(EditDialogState.borderColorEdit.Value, cfg.borderColor),
             NormalizeColorInput(EditDialogState.textColorEdit.Value, cfg.textColor),
-            cfg.doubleBorder,
+            EditDialogState.borderStyleList.Text = "double",
             cfg.imagePath,
             cfg.frameColor,
             cfg.backgroundColor,
