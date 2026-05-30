@@ -385,7 +385,12 @@ FormatButtonTitle(titleText, titleLineMode) {
 SplitTitleToTwoLines(titleText) {
     words := StrSplit(titleText, A_Space)
     if words.Length <= 1
-        return titleText
+    {
+        if StrLen(titleText) <= 1
+            return titleText
+        splitIndex := Ceil(StrLen(titleText) / 2)
+        return SubStr(titleText, 1, splitIndex) "`n" SubStr(titleText, splitIndex + 1)
+    }
 
     bestSplitIndex := 1
     bestDifference := ""
