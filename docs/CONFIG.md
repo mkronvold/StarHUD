@@ -14,13 +14,13 @@ StarHUD supports both direct file editing in `StarHUD-config.ahk` and in-app edi
 
 While layout edit mode is active, click the center button to open or close the **StarHUD Config** dialog.
 
-![StarHUD config dialog](starhud-config-dialog.png)
+![StarHUD config dialog](starhud-config-dialog-v2.png)
 
 ### Open the button editor
 
 While layout edit mode is active, hold `RAlt` and click any non-center button. This opens the **Edit StarHUD Button** dialog for that specific button.
 
-![StarHUD button editor](starhud-button-editor.png)
+![StarHUD button editor](starhud-button-editor-v2.png)
 
 ### Leaving edit mode
 
@@ -63,4 +63,4 @@ Changes made through the config dialog and button editor are written back to `St
 
 For a quick view of the HUD itself, see the main overlay screenshot in the [README](../README.md).
 
-![StarHUD HUD overlay](starhud-hud.png)
+![StarHUD HUD overlay](starhud-hud-v2.png)

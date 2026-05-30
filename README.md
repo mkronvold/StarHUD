@@ -11,19 +11,19 @@ StarHUD is an AutoHotkey v2 overlay for Star Citizen that opens a configurable 5
 
 ### HUD overlay
 
-![StarHUD HUD overlay](docs/starhud-hud.png)
+![StarHUD HUD overlay](docs/starhud-hud-v2.png)
 
 ### Config dialog
 
 The layout editor includes an in-app config dialog for display, color, placement, and page-management settings.
 
-![StarHUD config dialog](docs/starhud-config-dialog.png)
+![StarHUD config dialog](docs/starhud-config-dialog-v2.png)
 
 ### Button editor
 
 Buttons can be edited in place for title, colors, line mode, and action behavior.
 
-![StarHUD button editor](docs/starhud-button-editor.png)
+![StarHUD button editor](docs/starhud-button-editor-v2.png)
 
 ## Features
 
