@@ -7,19 +7,24 @@ StarHUD supports both direct file editing in `StarHUD-config.ahk` and in-app edi
 ### Open the layout editor
 
 1. Press `F20` to show the HUD.
-2. Press `RAlt+F20` to enter layout edit mode.
+2. Press `RAlt+F20` to toggle layout edit mode.
+3. You can also `RAlt` + click the center button to toggle layout edit mode with the mouse.
 
 ### Open the config dialog
 
-While layout edit mode is active, hold `LAlt` or `RAlt` and click the center button. This opens the **StarHUD Config** dialog and keeps the HUD in edit mode.
+While layout edit mode is active, click the center button to open or close the **StarHUD Config** dialog.
 
 ![StarHUD config dialog](starhud-config-dialog.png)
 
 ### Open the button editor
 
-While layout edit mode is active, hold `LAlt` and click any non-center button. This opens the **Edit StarHUD Button** dialog for that specific button.
+While layout edit mode is active, hold `RAlt` and click any non-center button. This opens the **Edit StarHUD Button** dialog for that specific button.
 
 ![StarHUD button editor](starhud-button-editor.png)
+
+### Leaving edit mode
+
+Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 ## What the config dialog controls
 

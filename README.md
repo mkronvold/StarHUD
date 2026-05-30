@@ -59,9 +59,10 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 
 - `F20` - show or hide the HUD
 - `RAlt+F20` - enter or exit layout edit mode
-- `LAlt+F20` - exit layout edit mode and hide the HUD
-- `LAlt` or `RAlt` + click center button - open config while entering layout edit mode, or exit edit mode if already active
-- `LAlt` + click a non-center button in edit mode - edit that button
+- `RAlt` + click center button - enter or exit layout edit mode
+- Click the center button in edit mode - open or close the config dialog
+- `RAlt` + click a non-center button in edit mode - edit that button
+- Hiding the HUD always exits layout edit mode
 
 ## Customizing
 

@@ -744,12 +744,12 @@ HandleLeftButtonUp(wParam, lParam, msg, hwnd) {
     if !IsObject(cell)
         return
 
-    if IsCenterCell(cell.row, cell.col) && IsAltModifierDown()
+    if IsCenterCell(cell.row, cell.col) && IsRightAltModifierDown()
     {
         if EditMode
             ExitLayoutEditMode(true)
         else
-            EnterLayoutEditMode(true)
+            EnterLayoutEditMode(false)
         return
     }
 
@@ -817,8 +817,8 @@ RunButtonAction(action) {
     }
 }
 
-IsAltModifierDown() {
-    return GetKeyState("LAlt", "P") || GetKeyState("RAlt", "P")
+IsRightAltModifierDown() {
+    return GetKeyState("RAlt", "P")
 }
 
 ; === LAYOUT ===
@@ -827,12 +827,18 @@ RebuildPageGuis(false)
 OnMessage(0x0202, HandleLeftButtonUp)
 
 HidePanel(*) {
-    global LastActiveHwnd, PageGuis, PanelVisible
+    global EditMode, EditSwapSelection, LastActiveHwnd, PageGuis, PanelVisible
+
+    wasEditing := EditMode || IsObject(EditSwapSelection)
 
     PanelVisible := false
+    EditMode := false
+    EditSwapSelection := 0
     CloseButtonEditor()
     CloseConfigEditor()
     HideAllPages()
+    if wasEditing
+        RebuildPageGuis(false)
     if LastActiveHwnd && WinExist("ahk_id " LastActiveHwnd)
         WinActivate("ahk_id " LastActiveHwnd)
 }
@@ -946,12 +952,15 @@ IsSelectedCell(pageIndex, rowIndex, colIndex) {
 HandleEditModeClick(pageIndex, rowIndex, colIndex) {
     global EditSwapSelection, PanelVisible
 
-    if IsAltModifierDown()
+    if IsCenterCell(rowIndex, colIndex)
     {
-        if IsCenterCell(rowIndex, colIndex)
-            ExitLayoutEditMode(true)
-        else
-            ToggleButtonEditor(pageIndex, rowIndex, colIndex)
+        ToggleConfigEditor()
+        return
+    }
+
+    if IsRightAltModifierDown()
+    {
+        ToggleButtonEditor(pageIndex, rowIndex, colIndex)
         return
     }
 
@@ -1818,10 +1827,4 @@ F20::
 >!F20::
 {
     ToggleEditMode()
-}
-
-<!F20::
-{
-    if EditMode
-        ExitLayoutEditMode(true)
 }
