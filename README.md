@@ -2,6 +2,14 @@
 
 StarHUD is an AutoHotkey v2 overlay for Star Citizen that opens a configurable 5x5 HUD of mouse-friendly buttons for common ship actions, shortcuts, and macros.
 
+See [INSTALL.md](INSTALL.md) for setup, file placement, and shortcut creation instructions.
+
+## Screenshots
+
+![StarHUD HUD overlay](docs/starhud-hud.png)
+![StarHUD config dialog](docs/starhud-config-dialog.png)
+![StarHUD button editor](docs/starhud-button-editor.png)
+
 ## Features
 
 - Config-driven multi-page button layout
@@ -22,6 +30,8 @@ StarHUD is an AutoHotkey v2 overlay for Star Citizen that opens a configurable 5
 - `StarHUD.ahk` - main runtime script
 - `StarHUD-config.ahk` - user-editable settings, pages, and button definitions
 - `star-citizen-logo-bright.png` - default center button image
+- `StarHUD-center-logo.png` - alternate logo image included with the project
+- `StarHUD-center-logo.ico` - icon file for Windows shortcuts
 
 ## Getting started
 
