@@ -1788,10 +1788,11 @@ SwitchConfigFromDialog(*) {
 NewConfigFromDialog(*) {
     try
     {
+        SaveConfigStateForSwitch()
+        CloseConfigEditor()
         targetFileName := PromptForConfigFileName("New")
         if targetFileName = ""
             return
-        SaveConfigStateForSwitch()
         CreateNewConfigFile(targetFileName)
         SwitchToConfigFile(targetFileName)
     }
@@ -1804,10 +1805,11 @@ NewConfigFromDialog(*) {
 CloneConfigFromDialog(*) {
     try
     {
+        SaveConfigStateForSwitch()
+        CloseConfigEditor()
         targetFileName := PromptForConfigFileName("Clone")
         if targetFileName = ""
             return
-        SaveConfigStateForSwitch()
         CreateClonedConfigFile(targetFileName)
         SwitchToConfigFile(targetFileName)
     }
