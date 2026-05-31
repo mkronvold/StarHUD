@@ -32,13 +32,15 @@ if !SizeProfiles.Has(Size)
     throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
 
 ApplySizeProfile(SizeProfiles[Size])
-CornerRadius := 12
+CornerRadius := 0
 MaskColor := "010101"
 FrameColor := "4A4A4A"
 FillColor := "000000"
 ; OpenPositionMode: "auto-split", "mouse", "always-left", or "always-right"
-OpenPositionMode := "always-left"
+OpenPositionMode := "mouse"
 StealMouseInput := true
+ShowButtonKeys := true
+ToggleHotkey := "F20"
 CenterLogoFile := "star-citizen-logo-bright.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
 CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", false, CenterLogoPath, "", FillColor)
@@ -51,13 +53,17 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", false, C
 ; Set OpenPositionMode to "auto-split", "mouse", "always-left", or "always-right".
 ; Set StealMouseInput to true to activate the HUD while it is shown so clicks/mouse movement do not reach the app underneath.
 ; Set StealMouseInput to false to keep the previous non-activating overlay behavior.
+; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them.
+; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
-; Press RAlt+F20 to toggle edit mode. In edit mode, click one button and then another to swap them.
+; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
 ; In edit mode, plain-click the center button to open the config dialog.
-; In edit mode, hold RAlt and click a non-center button to edit its title, colors, line mode, and action.
+; In edit mode, RAlt+click the center button to go to the next page.
+; In edit mode, plain-click a non-center button to edit its title, colors, border style, and action.
+; In edit mode, hold RAlt and click one non-center button, then another, to swap/move them.
 ; The button editor also supports Delete, Copy, and Paste so you can clear or duplicate buttons quickly.
-; RAlt+click on the center button also toggles edit mode, and hiding the HUD always turns edit mode off.
+; Hiding the HUD always turns edit mode off.
 ; The block between MANAGED BUTTON LAYOUT markers is rewritten by StarHUD edit mode.
 ; You can still edit it manually, but button swaps and dialog edits will overwrite that managed block.
 ; titleLineMode is stored as "single" or "double" in each ButtonCfg(...) entry.

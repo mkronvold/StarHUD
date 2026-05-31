@@ -15,7 +15,7 @@ StarHUD is an AutoHotkey v2 overlay for Star Citizen that opens a configurable 5
 
 ### Config dialog
 
-The layout editor includes an in-app config dialog for display, color, placement, and page-management settings.
+The layout editor includes an in-app config dialog for display, color, placement, key-label, and page-management settings.
 
 ![StarHUD config dialog](docs/starhud-config-dialog-v2.png)
 
@@ -30,6 +30,8 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 - Config-driven multi-page button layout
 - Multiple config profiles with in-app switching
 - Automatic shortcut labels generated from the configured action
+- Optional hide/show control for shortcut labels on buttons
+- Automatic migration of older config files when new settings are introduced
 - Screen-size profiles with optional auto-detection
 - Popup positioning modes: `mouse`, `auto-split`, `always-left`, and `always-right`
 - Optional mouse input capture while the HUD is open
@@ -59,11 +61,13 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 
 ## Default controls
 
-- `F20` - show or hide the HUD
-- `RAlt+F20` - enter or exit layout edit mode
-- `RAlt` + click center button - enter or exit layout edit mode
+- Configured toggle key (`F20` by default) - show or hide the HUD
+- `RAlt` + configured toggle key - enter or exit layout edit mode
+- `RAlt` + click center button when not editing - enter layout edit mode
 - Click the center button in edit mode - open or close the config dialog
-- `RAlt` + click a non-center button in edit mode - edit that button
+- `RAlt` + click center button in edit mode - go to the next page
+- Click a non-center button in edit mode - edit that button
+- `RAlt` + click a non-center button in edit mode - select and swap/move buttons
 - Hiding the HUD always exits layout edit mode
 
 ## Customizing
@@ -73,6 +77,8 @@ Most customization happens in the active `StarHUD-config*.ahk` file.
 - Change `Size` to use a built-in profile or add your own custom lettered profile.
 - Change `OpenPositionMode` to control where the HUD appears.
 - Change `StealMouseInput` if you want the HUD to intercept mouse input while visible.
+- Change `ShowButtonKeys` if you want to show or hide the action keys on buttons.
+- Change `ToggleHotkey` if you want a different key than `F20` to open the HUD.
 - Edit the managed page layout block to define buttons, colors, and actions.
 
 The script also supports editing the layout live from the HUD. Swaps, button edits, page changes, and config-profile changes are written back to the active `StarHUD-config*.ahk` file.

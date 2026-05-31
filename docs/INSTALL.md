@@ -25,16 +25,16 @@ Keep these files together in that same folder:
 ## First launch
 
 1. Open `StarHUD-config.ahk`.
-2. Set your preferred `Size`, `OpenPositionMode`, colors, and button bindings.
+2. Set your preferred `Size`, `OpenPositionMode`, `ToggleHotkey`, colors, and button bindings.
 3. Double-click `StarHUD.ahk` to start the HUD.
 
 You can add more config profiles later from the in-app config dialog without moving files into a separate folder.
 
-## Optional: map F20 to a mouse button
+## Optional: map the toggle key to a mouse button
 
-StarHUD uses `F20` to show and hide the HUD. If your keyboard does not have an `F20` key, map one of your mouse buttons to `F20` in your mouse software.
+StarHUD uses the configured `ToggleHotkey` to show and hide the HUD. The default is `F20`. If your keyboard does not have that key, you can either change `ToggleHotkey` in the config or map one of your mouse buttons to the same keystroke in your mouse software.
 
-For example, in **Logitech G HUB**, you can assign a mouse button to the `F20` keystroke so the HUD opens directly from the mouse.
+For example, in **Logitech G HUB**, you can assign a mouse button to your chosen toggle keystroke so the HUD opens directly from the mouse.
 
 ## Create a desktop shortcut
 

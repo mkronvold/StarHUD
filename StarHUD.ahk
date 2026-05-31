@@ -9,6 +9,11 @@ CoordMode "Mouse", "Screen"
 ; Editable settings and button/page layout live in the active StarHUD config file.
 #Include StarHUD-active-config.ahk
 
+if !IsSet(ToggleHotkey)
+    ToggleHotkey := "F20"
+if !IsSet(ShowButtonKeys)
+    ShowButtonKeys := true
+
 ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
 ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
 ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
@@ -28,6 +33,8 @@ EditSwapSelection := 0
 EditDialogState := 0
 ConfigDialogState := 0
 CopiedButtonCfg := 0
+RegisteredToggleHotkey := ""
+RegisteredEditToggleHotkey := ""
 
 ; Start GDI+
 DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", Buffer(8, 0), "Ptr", 0)
@@ -117,6 +124,13 @@ NormalizeActionKey(keyValue) {
     keyText := Format("{}", keyValue)
     if SubStr(keyText, 1, 1) = "{" && SubStr(keyText, -1) = "}"
         keyText := SubStr(keyText, 2, StrLen(keyText) - 2)
+    return keyText
+}
+
+NormalizeToggleHotkeyInput(keyValue) {
+    keyText := Trim(NormalizeActionKey(keyValue))
+    if keyText = ""
+        throw Error("Toggle key cannot be empty.")
     return keyText
 }
 
@@ -372,9 +386,11 @@ GetActionSteps(action) {
 }
 
 GetButtonDisplayText(cfg) {
+    global ShowButtonKeys
+
     titleText := FormatButtonTitle(cfg.text, cfg.titleLineMode)
     shortcutLabel := GetActionShortcutLabel(cfg.action)
-    if shortcutLabel = ""
+    if !ShowButtonKeys || shortcutLabel = ""
         return titleText
     if titleText = ""
         return shortcutLabel
@@ -688,6 +704,7 @@ CreateClonedConfigFile(targetFileName) {
     if FileExist(targetPath)
         throw Error("Config already exists: " targetFileName)
     FileCopy(sourcePath, targetPath, false)
+    EnsureConfigFileCompatibility(targetPath)
 }
 
 CreateNewConfigFile(targetFileName) {
@@ -754,6 +771,103 @@ ReplaceConfigAssignment(configText, keyName, valueText) {
     return replacedText
 }
 
+UpsertConfigAssignment(configText, keyName, valueText, insertAfterKeyName := "") {
+    pattern := "m)^" keyName "\s*:=.*$"
+    replacedText := RegExReplace(configText, pattern, keyName " := " valueText, &replaceCount, 1)
+    if replaceCount > 0
+        return replacedText
+
+    assignmentText := keyName " := " valueText
+    if insertAfterKeyName != ""
+    {
+        anchorPattern := "m)^" insertAfterKeyName "\s*:=.*$"
+        if RegExMatch(configText, anchorPattern, &anchorMatch)
+        {
+            insertPos := anchorMatch.Pos(0) + anchorMatch.Len(0) - 1
+            return SubStr(configText, 1, insertPos) "`r`n" assignmentText SubStr(configText, insertPos + 1)
+        }
+    }
+
+    return assignmentText "`r`n" configText
+}
+
+ReplaceOrInsertCommentBlock(configText, desiredLines, afterAnchorText := "", beforeAnchorText := "") {
+    replacementText := ArrayJoin(desiredLines, "`r`n")
+    afterPos := afterAnchorText = "" ? 0 : InStr(configText, afterAnchorText)
+    beforePos := beforeAnchorText = "" ? 0 : InStr(configText, beforeAnchorText)
+
+    if afterPos && beforePos && beforePos > afterPos
+    {
+        blockStart := afterPos + StrLen(afterAnchorText)
+        return SubStr(configText, 1, blockStart) "`r`n" replacementText "`r`n" SubStr(configText, beforePos)
+    }
+
+    if afterPos
+    {
+        insertPos := afterPos + StrLen(afterAnchorText)
+        return SubStr(configText, 1, insertPos) "`r`n" replacementText SubStr(configText, insertPos + 1)
+    }
+
+    if beforePos
+        return SubStr(configText, 1, beforePos - 1) replacementText "`r`n" SubStr(configText, beforePos)
+
+    if configText != "" && SubStr(configText, -1) != "`n"
+        configText .= "`r`n"
+    return configText replacementText
+}
+
+ApplyConfigCompatibilityMigrations(configText) {
+    global ShowButtonKeys, ToggleHotkey
+
+    settingCommentLines := [
+        "; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them."
+        , '; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.'
+    ]
+    controlCommentLines := [
+        "; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode."
+        , "; In edit mode, plain-click the center button to open the config dialog."
+        , "; In edit mode, RAlt+click the center button to go to the next page."
+        , "; In edit mode, plain-click a non-center button to edit its title, colors, border style, and action."
+        , "; In edit mode, hold RAlt and click one non-center button, then another, to swap/move them."
+        , "; The button editor also supports Delete, Copy, and Paste so you can clear or duplicate buttons quickly."
+        , "; Hiding the HUD always turns edit mode off."
+    ]
+
+    configText := UpsertConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys), "StealMouseInput")
+    configText := UpsertConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey), "ShowButtonKeys")
+    configText := ReplaceOrInsertCommentBlock(
+        configText,
+        settingCommentLines,
+        "; Set StealMouseInput to false to keep the previous non-activating overlay behavior.",
+        "; Set CenterLogoFile above to change the center icon."
+    )
+    configText := ReplaceOrInsertCommentBlock(
+        configText,
+        controlCommentLines,
+        "; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.",
+        "; The block between MANAGED BUTTON LAYOUT markers is rewritten by StarHUD edit mode."
+    )
+
+    return configText
+}
+
+EnsureConfigFileCompatibility(filePath := "") {
+    if filePath = ""
+        filePath := GetConfigFilePath()
+
+    originalText := FileRead(filePath, "UTF-8")
+    migratedText := ApplyConfigCompatibilityMigrations(originalText)
+    if migratedText = originalText
+        return false
+
+    file := FileOpen(filePath, "w", "UTF-8")
+    if !IsObject(file)
+        throw Error("Could not open config file for writing: " filePath)
+    file.Write(migratedText)
+    file.Close()
+    return true
+}
+
 BackupConfigFile(filePath := "") {
     if filePath = ""
         filePath := GetConfigFilePath()
@@ -768,13 +882,14 @@ SerializeSizeConfigValue(sizeValue) {
 }
 
 WriteConfigStateToFile(createBackup := false, filePath := "") {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
+    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, StealMouseInput, ToggleHotkey
 
     if filePath = ""
         filePath := GetConfigFilePath()
     configText := FileRead(filePath, "UTF-8")
     if createBackup
         BackupConfigFile(filePath)
+    configText := ApplyConfigCompatibilityMigrations(configText)
 
     configText := ReplaceConfigAssignment(configText, "Size", SerializeSizeConfigValue(Size))
     configText := ReplaceConfigAssignment(configText, "CornerRadius", CornerRadius + 0)
@@ -783,6 +898,8 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     configText := ReplaceConfigAssignment(configText, "FillColor", SerializeAhkString(StrUpper(FillColor)))
     configText := ReplaceConfigAssignment(configText, "OpenPositionMode", SerializeAhkString(OpenPositionMode))
     configText := ReplaceConfigAssignment(configText, "StealMouseInput", BoolToAhk(StealMouseInput))
+    configText := ReplaceConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys))
+    configText := ReplaceConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey))
     configText := ReplaceManagedLayoutBlock(configText)
 
     file := FileOpen(filePath, "w", "UTF-8")
@@ -801,7 +918,7 @@ CreateButtonCell(gui, textPlacements, pageIndex, rowIndex, colIndex, cfg, x, y, 
     if !HasVisualContent(cfg)
         return
 
-    if cfg.imagePath != ""
+    if cfg.imagePath != "" && FileExist(cfg.imagePath)
     {
         CreateSolidLayer(gui, x, y, size, size, cfg.backgroundColor, CornerRadius)
         gui.Add("Picture", "x" x " y" y " w" size " h" size, cfg.imagePath)
@@ -931,7 +1048,7 @@ HandleLeftButtonUp(wParam, lParam, msg, hwnd) {
     if IsCenterCell(cell.row, cell.col) && IsRightAltModifierDown()
     {
         if EditMode
-            ExitLayoutEditMode(true)
+            CyclePage()
         else
             EnterLayoutEditMode(false)
         return
@@ -1144,17 +1261,29 @@ HandleEditModeClick(pageIndex, rowIndex, colIndex) {
 
     if IsRightAltModifierDown()
     {
-        ToggleButtonEditor(pageIndex, rowIndex, colIndex)
+        HandleEditModeMoveClick(pageIndex, rowIndex, colIndex)
         return
     }
 
     if IsObject(EditSwapSelection)
+    {
         if EditSwapSelection.pageIndex = pageIndex && EditSwapSelection.row = rowIndex && EditSwapSelection.col = colIndex
         {
             EditSwapSelection := 0
             RebuildPageGuis(PanelVisible)
-            return
         }
+        else
+        {
+            EditSwapSelection := 0
+            RebuildPageGuis(PanelVisible)
+        }
+    }
+
+    ToggleButtonEditor(pageIndex, rowIndex, colIndex)
+}
+
+HandleEditModeMoveClick(pageIndex, rowIndex, colIndex) {
+    global EditSwapSelection, PanelVisible
 
     if !IsObject(EditSwapSelection)
     {
@@ -1293,6 +1422,7 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
     key1Edit := editorGui.Add("Edit", "xm w120", GetActionEditorPrimaryValue(cfg.action))
     key2Label := editorGui.Add("Text", "x+12 yp", "Modifier")
     key2Edit := editorGui.Add("Edit", "x+0 w120", GetActionEditorSecondaryValue(cfg.action))
+    chordHintText := editorGui.Add("Text", "xm y+2 c808080", "Chord modifiers use AHK names like LAlt or RAlt.")
 
     durationLabel := editorGui.Add("Text", "xm y+8", "Duration ms")
     durationEdit := editorGui.Add("Edit", "xm w120", GetActionEditorDurationValue(cfg.action))
@@ -1322,6 +1452,7 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
         key1Edit: key1Edit,
         key2Label: key2Label,
         key2Edit: key2Edit,
+        chordHintText: chordHintText,
         durationLabel: durationLabel,
         durationEdit: durationEdit,
         delayLabel: delayLabel,
@@ -1382,6 +1513,7 @@ UpdateButtonEditorFields(*) {
     actionType := EditDialogState.actionTypeList.Text
     SetEditorFieldVisible(EditDialogState.key1Label, EditDialogState.key1Edit, false)
     SetEditorFieldVisible(EditDialogState.key2Label, EditDialogState.key2Edit, false)
+    EditDialogState.chordHintText.Opt("+Hidden")
     SetEditorFieldVisible(EditDialogState.durationLabel, EditDialogState.durationEdit, false)
     SetEditorFieldVisible(EditDialogState.delayLabel, EditDialogState.delayEdit, false)
     switch actionType
@@ -1406,6 +1538,7 @@ UpdateButtonEditorFields(*) {
             EditDialogState.delayLabel.Text := "Delay ms"
             SetEditorFieldVisible(EditDialogState.key1Label, EditDialogState.key1Edit, true)
             SetEditorFieldVisible(EditDialogState.key2Label, EditDialogState.key2Edit, true)
+            EditDialogState.chordHintText.Opt("-Hidden")
             SetEditorFieldVisible(EditDialogState.delayLabel, EditDialogState.delayEdit, true)
             SetEditorControlEnabled(EditDialogState.key1Edit, true)
             SetEditorControlEnabled(EditDialogState.key2Edit, true)
@@ -1640,7 +1773,7 @@ GetSizeProfileOptions() {
 }
 
 OpenConfigEditor() {
-    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, StealMouseInput
+    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, StealMouseInput, ToggleHotkey
 
     configFileNames := GetAvailableConfigFiles()
     configDisplayNames := GetConfigDisplayNames(configFileNames)
@@ -1690,9 +1823,17 @@ OpenConfigEditor() {
     ChooseDropDownValue(openPositionList, OpenPositionMode, openPositionOptions)
     configGui.Add("Text", "xm y+2 c808080", "Choose where the HUD appears when you open it.")
 
+    configGui.Add("Text", "xm y+8", "Toggle key")
+    toggleHotkeyEdit := configGui.Add("Edit", "xm w140", ToggleHotkey)
+    configGui.Add("Text", "xm y+2 c808080", "Bare AHK key name used to open the HUD. RAlt + this key toggles edit mode.")
+
     stealMouseInputCheck := configGui.Add("CheckBox", "xm y+10", "Steal mouse input")
     stealMouseInputCheck.Value := StealMouseInput ? 1 : 0
     configGui.Add("Text", "xm y+2 c808080", "Block mouse clicks and movement from reaching the app underneath.")
+
+    showButtonKeysCheck := configGui.Add("CheckBox", "xm y+8", "Show key labels on buttons")
+    showButtonKeysCheck.Value := ShowButtonKeys ? 1 : 0
+    configGui.Add("Text", "xm y+2 c808080", "Show or hide the action keys that appear under each button title.")
 
     addPageButton := configGui.Add("Button", "xm y+14 w100", "Add Page")
     deletePageButton := configGui.Add("Button", "x+8 w100", "Delete Page")
@@ -1714,7 +1855,9 @@ OpenConfigEditor() {
         frameColorEdit: frameColorEdit,
         fillColorEdit: fillColorEdit,
         openPositionList: openPositionList,
-        stealMouseInputCheck: stealMouseInputCheck
+        toggleHotkeyEdit: toggleHotkeyEdit,
+        stealMouseInputCheck: stealMouseInputCheck,
+        showButtonKeysCheck: showButtonKeysCheck
     }
 
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
@@ -1915,7 +2058,7 @@ ColorRefToHex(colorRef) {
 }
 
 ApplyConfigDialogValues() {
-    global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, Size, SizeProfiles, StealMouseInput
+    global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, SizeProfiles, StealMouseInput, ToggleHotkey
 
     if !IsObject(ConfigDialogState)
         return
@@ -1925,6 +2068,7 @@ ApplyConfigDialogValues() {
     newSize := NormalizeSizeKey(ConfigDialogState.sizeList.Text)
     if !SizeProfiles.Has(newSize)
         throw Error("Unknown Size profile: " newSize)
+    newToggleHotkey := NormalizeToggleHotkeyInput(ConfigDialogState.toggleHotkeyEdit.Value)
 
     Size := newSize
     CornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
@@ -1932,7 +2076,10 @@ ApplyConfigDialogValues() {
     FrameColor := NormalizeColorInput(ConfigDialogState.frameColorEdit.Value, FrameColor)
     FillColor := NormalizeColorInput(ConfigDialogState.fillColorEdit.Value, FillColor)
     OpenPositionMode := ConfigDialogState.openPositionList.Text
+    ToggleHotkey := newToggleHotkey
     StealMouseInput := ConfigDialogState.stealMouseInputCheck.Value = 1
+    ShowButtonKeys := ConfigDialogState.showButtonKeysCheck.Value = 1
+    RegisterToggleHotkeys(ToggleHotkey)
     RefreshCenterButtonTemplate()
     UpdateButtonsForDefaultColorChange(oldFrameColor, oldFillColor)
 }
@@ -2113,20 +2260,38 @@ IsPageGui(hwnd) {
     return false
 }
 
-; ================== TOGGLE ==================
-F20::
-{
+HandleToggleHotkey(*) {
+    global PanelVisible
+
     if PanelVisible
-    {
         HidePanel()
-    }
     else
-    {
         ShowPanel()
-    }
 }
 
->!F20::
-{
+HandleEditToggleHotkey(*) {
     ToggleEditMode()
 }
+
+RegisterToggleHotkeys(toggleKey := "") {
+    global RegisteredEditToggleHotkey, RegisteredToggleHotkey, ToggleHotkey
+
+    newToggleHotkey := toggleKey = "" ? NormalizeToggleHotkeyInput(ToggleHotkey) : NormalizeToggleHotkeyInput(toggleKey)
+    newEditToggleHotkey := ">!" newToggleHotkey
+
+    Hotkey(newToggleHotkey, HandleToggleHotkey, "On")
+    Hotkey(newEditToggleHotkey, HandleEditToggleHotkey, "On")
+
+    if RegisteredToggleHotkey != "" && RegisteredToggleHotkey != newToggleHotkey
+        Hotkey(RegisteredToggleHotkey, "Off")
+    if RegisteredEditToggleHotkey != "" && RegisteredEditToggleHotkey != newEditToggleHotkey
+        Hotkey(RegisteredEditToggleHotkey, "Off")
+
+    ToggleHotkey := newToggleHotkey
+    RegisteredToggleHotkey := newToggleHotkey
+    RegisteredEditToggleHotkey := newEditToggleHotkey
+}
+
+; ================== TOGGLE ==================
+EnsureConfigFileCompatibility()
+RegisterToggleHotkeys()

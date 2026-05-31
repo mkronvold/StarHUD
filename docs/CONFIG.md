@@ -6,19 +6,22 @@ StarHUD supports both direct file editing in `StarHUD-config*.ahk` files and in-
 
 ### Open the layout editor
 
-1. Press `F20` to show the HUD.
-2. Press `RAlt+F20` to toggle layout edit mode.
-3. You can also `RAlt` + click the center button to toggle layout edit mode with the mouse.
+1. Press your configured toggle key to show the HUD. The default is `F20`.
+2. Press `RAlt` + that same key to toggle layout edit mode.
+3. You can also `RAlt` + click the center button to enter layout edit mode with the mouse when the HUD is already open.
 
 ### Open the config dialog
 
 While layout edit mode is active, click the center button to open or close the **StarHUD Config** dialog.
 
 ![StarHUD config dialog](starhud-config-dialog-v2.png)
+### Move buttons
+
+While layout edit mode is active, hold `RAlt` and click a non-center button to select it for moving, then `RAlt` + click another non-center button to swap them. `RAlt` + clicking the center button moves to the next page instead.
 
 ### Open the button editor
 
-While layout edit mode is active, hold `RAlt` and click any non-center button. This opens the **Edit StarHUD Button** dialog for that specific button.
+While layout edit mode is active, click any non-center button to open the **Edit StarHUD Button** dialog for that specific button.
 
 ![StarHUD button editor](starhud-button-editor-v2.png)
 
@@ -43,7 +46,9 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 - **Frame color**: sets the default outer frame color for buttons.
 - **Fill color**: sets the default inner fill color used behind button labels and images.
 - **Open position**: chooses where the HUD opens: at the mouse, auto-split to the nearest side, always-left, or always-right.
+- **Toggle key**: sets the bare AutoHotkey key name used to show or hide the HUD. `RAlt` + that same key toggles layout edit mode.
 - **Steal mouse input**: when enabled, the HUD captures mouse interaction so the underlying app does not receive clicks or movement while the panel is open.
+- **Show key labels on buttons**: shows or hides the action keys that appear under each button title.
 
 ### Page management
 
@@ -58,13 +63,15 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 - **Border color / text color / line color**: per-button colors, with direct hex entry and picker buttons.
 - **Border style**: choose whether the button uses a single or double border.
 - **Action type**: choose between `SendKey`, `ChordKey`, `HoldKey`, `DoubleTapKey`, or no action.
-- **Action key fields**: define the keys or modifier+key combination used by the selected action.
+- **Action key fields**: define the keys or modifier+key combination used by the selected action. For `ChordKey`, use AutoHotkey modifier names like `LAlt` or `RAlt`.
 - **Duration / delay**: shown only for action types that need them.
 - **Delete / Copy / Paste**: clear a button, copy a button config, or paste a copied config onto another button.
 
 ## Persistence
 
 Changes made through the config dialog and button editor are written back to the active `StarHUD-config*.ahk` file, so the next launch uses the updated layout and settings.
+
+When StarHUD loads or saves an older config file, it silently fills in newer missing settings and refreshes the matching comment blocks so older profiles keep working.
 
 ## Visual overview
 
