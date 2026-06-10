@@ -32,6 +32,7 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 - Automatic shortcut labels generated from the configured action
 - Optional hide/show control for shortcut labels on buttons
 - Automatic migration of older config files when new settings are introduced
+- Per-button image browsing from the `images/` folder with preview and fit modes
 - Screen-size profiles with optional auto-detection
 - Popup positioning modes: `mouse`, `auto-split`, `always-left`, and `always-right`
 - Optional mouse input capture while the HUD is open
@@ -48,8 +49,9 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 - `StarHUD.ahk` - main runtime script
 - `StarHUD-active-config.ahk` - selects which config profile StarHUD loads
 - `StarHUD-config.ahk` and `StarHUD-config-*.ahk` - user-editable settings, pages, and button definitions
-- `star-citizen-logo-bright.png` - default center button image
-- `StarHUD-center-logo.png` - alternate logo image included with the project
+- `images\` - folder for per-button images used by the button editor
+- `images\StarHUD-center-logo-200x200.png` - default center button image
+- `images\StarHUD-center-logo-100x100.png` - alternate logo image included with the project
 - `StarHUD-center-logo.ico` - icon file for Windows shortcuts
 
 ## Getting started

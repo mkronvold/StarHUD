@@ -11,11 +11,12 @@ Keep these files together in that same folder:
 - `StarHUD.ahk`
 - `StarHUD-active-config.ahk`
 - `StarHUD-config.ahk`
-- `star-citizen-logo-bright.png`
-- `StarHUD-center-logo.png`
+- `images\`
+- `images\StarHUD-center-logo-200x200.png`
+- `images\StarHUD-center-logo-100x100.png`
 - `StarHUD-center-logo.ico`
 
-`StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder through `StarHUD-active-config.ahk`, and the center-logo image paths are also resolved relative to that same folder.
+`StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder through `StarHUD-active-config.ahk`. Center-logo paths are resolved from that folder, and per-button images are resolved from the `images\` subfolder.
 
 ## Install AutoHotkey
 
@@ -28,7 +29,7 @@ Keep these files together in that same folder:
 2. Set your preferred `Size`, `OpenPositionMode`, `ToggleHotkey`, colors, and button bindings.
 3. Double-click `StarHUD.ahk` to start the HUD.
 
-You can add more config profiles later from the in-app config dialog without moving files into a separate folder.
+You can add more config profiles later from the in-app config dialog without moving files into a separate folder. The config dialog can also open the `images\` folder for you, and StarHUD creates it automatically if it does not exist yet.
 
 ## Optional: map the toggle key to a mouse button
 
@@ -62,4 +63,4 @@ If you want to point the shortcut directly at AutoHotkey:
 
 ## Updating assets
 
-If you move StarHUD to a different folder later, move the `.ahk`, config, `.png`, and `.ico` files together so the script and shortcut icon keep working.
+If you move StarHUD to a different folder later, move the `.ahk`, config, `images\`, `.png`, and `.ico` files together so the script and shortcut icon keep working.

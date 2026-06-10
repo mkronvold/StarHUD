@@ -45,10 +45,13 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 - **Mask color**: sets the transparent mask color used for the HUD window.
 - **Frame color**: sets the default outer frame color for buttons.
 - **Fill color**: sets the default inner fill color used behind button labels and images.
+- **Show outer border**: toggles the thin outer frame ring around each button.
 - **Open position**: chooses where the HUD opens: at the mouse, auto-split to the nearest side, always-left, or always-right.
 - **Toggle key**: sets the bare AutoHotkey key name used to show or hide the HUD. `RAlt` + that same key toggles layout edit mode.
 - **Steal mouse input**: when enabled, the HUD captures mouse interaction so the underlying app does not receive clicks or movement while the panel is open.
 - **Show key labels on buttons**: shows or hides the action keys that appear under each button title.
+- **Open Images**: opens the `images\` folder in Explorer and creates it if needed, so you can manage button images without hunting for the path manually.
+- **Live HUD preview**: size, corner radius, outer border, and color changes update the open HUD immediately while the config dialog is open. **Save** keeps them; **Close** restores the original values.
 
 ### Page management
 
@@ -61,7 +64,11 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 - **Button name**: multiline title field for the label shown on the button. The line breaks you type here control how many title lines the button uses.
 - **Border color / text color / line color**: per-button colors, with direct hex entry and picker buttons.
-- **Border style**: choose whether the button uses a single or double border.
+- **Border style**: choose whether the button uses a single, double, or no inner border line.
+- **Image / Browse / Clear**: shows the selected button image, lets you browse the `images\` folder and its subfolders, or remove the image.
+- **Image fit**: controls how the image fills the square button. New image buttons default to `cover`.
+- **Show text over image / Show keys over image**: optional overlays that let image buttons keep the button title or sent-key label on top of the image.
+- **Live HUD preview**: while the dialog is open, the actual HUD button updates live to reflect your current edits. **Save** keeps the changes; **Cancel** restores the original button.
 - **Action type**: choose between `SendKey`, `ChordKey`, `HoldKey`, `DoubleTapKey`, or no action.
 - **Action key fields**: define the keys or modifier+key combination used by the selected action. For `ChordKey`, use AutoHotkey modifier names like `LAlt` or `RAlt`.
 - **Duration / delay**: shown only for action types that need them.
@@ -71,7 +78,7 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 
 Changes made through the config dialog and button editor are written back to the active `StarHUD-config*.ahk` file, so the next launch uses the updated layout and settings.
 
-When StarHUD loads or saves an older config file, it silently fills in newer missing settings and refreshes the matching comment blocks so older profiles keep working.
+When StarHUD loads or saves an older config file, it silently fills in newer missing settings and refreshes the matching comment blocks so older profiles keep working. Button-image references are kept relative to the `images\` folder whenever possible.
 
 ## Visual overview
 

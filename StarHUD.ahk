@@ -7,43 +7,19 @@ DetectHiddenWindows True
 CoordMode "Mouse", "Screen"
 
 ; Editable settings and button/page layout live in the active StarHUD config file.
-#Include StarHUD-active-config.ahk
-
-if !IsSet(ToggleHotkey)
-    ToggleHotkey := "F20"
-if !IsSet(ShowButtonKeys)
-    ShowButtonKeys := true
-
-ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
-ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
-ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
-ManagedLayoutEndMarker := "; === MANAGED BUTTON LAYOUT END ==="
-GridRows := ButtonPages[1].Length
-GridCols := ButtonPages[1][1].Length
-GuiW := GridMargin * 2 + GridCols * BtnSize + (GridCols - 1) * BtnGap
-GuiH := GridMargin * 2 + GridRows * BtnSize + (GridRows - 1) * BtnGap
-LastActiveHwnd := 0
-PanelVisible := false
-CurrentPageIndex := 1
-CenterClientX := GridMargin + Floor(GridCols / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
-CenterClientY := GridMargin + Floor(GridRows / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
-PageGuis := []
-EditMode := false
-EditSwapSelection := 0
-EditDialogState := 0
-ConfigDialogState := 0
-CopiedButtonCfg := 0
-RegisteredToggleHotkey := ""
-RegisteredEditToggleHotkey := ""
 
 ; Start GDI+
-DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", Buffer(8, 0), "Ptr", 0)
-OnExit (*) => DllCall("gdiplus\GdiplusShutdown", "Ptr", pToken)
+gdiplusStartupInput := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
+NumPut("UInt", 1, gdiplusStartupInput, 0)
+gdiplusStatus := DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", gdiplusStartupInput, "Ptr", 0)
+OnExit (*) => ((gdiplusStatus = 0 && pToken) ? DllCall("gdiplus\GdiplusShutdown", "Ptr", pToken) : 0)
 
-ButtonCfg(text := "", action := 0, borderColor := "00FF88", textColor := "", doubleBorder := false, imagePath := "", frameColorOverride := "", backgroundColor := "", titleLineMode := "") {
+ButtonCfg(text := "", action := 0, borderColor := "00FF88", textColor := "", doubleBorder := false, imagePath := "", frameColorOverride := "", backgroundColor := "", titleLineMode := "", imageFitMode := "cover", showTextOnImage := false, showKeysOnImage := false) {
     global FillColor, FrameColor
 
     normalizedText := NormalizeConfigTitle(text)
+    normalizedImagePath := NormalizeStoredImageReference(imagePath)
+    borderStyle := NormalizeBorderStyle(doubleBorder)
     if titleLineMode = ""
         titleLineMode := InferTitleLineMode(text)
     if textColor = ""
@@ -52,17 +28,26 @@ ButtonCfg(text := "", action := 0, borderColor := "00FF88", textColor := "", dou
         frameColorOverride := FrameColor
     if backgroundColor = ""
         backgroundColor := FillColor
+    if normalizedImagePath = ""
+    {
+        showTextOnImage := false
+        showKeysOnImage := false
+    }
 
     return {
         text: normalizedText,
         action: action,
         borderColor: borderColor,
         textColor: textColor,
-        doubleBorder: doubleBorder,
-        imagePath: imagePath,
+        borderStyle: borderStyle,
+        doubleBorder: borderStyle = "double",
+        imagePath: normalizedImagePath,
         frameColor: frameColorOverride,
         backgroundColor: backgroundColor,
-        titleLineMode: titleLineMode
+        titleLineMode: titleLineMode,
+        imageFitMode: NormalizeImageFitMode(imageFitMode),
+        showTextOnImage: !!showTextOnImage,
+        showKeysOnImage: !!showKeysOnImage
     }
 }
 
@@ -132,6 +117,108 @@ NormalizeToggleHotkeyInput(keyValue) {
     if keyText = ""
         throw Error("Toggle key cannot be empty.")
     return keyText
+}
+
+NormalizeImageFitMode(fitMode) {
+    fitText := StrLower(Trim(Format("{}", fitMode)))
+    if fitText = ""
+        return "cover"
+    switch fitText
+    {
+        case "cover", "contain", "stretch", "center":
+            return fitText
+        default:
+            throw Error("Unsupported image fit mode: " fitText)
+    }
+}
+
+NormalizeBorderStyle(borderStyleValue) {
+    styleText := StrLower(Trim(Format("{}", borderStyleValue)))
+    switch styleText
+    {
+        case "", "false", "0", "single":
+            return "single"
+        case "true", "1", "double":
+            return "double"
+        case "none":
+            return "none"
+        default:
+            throw Error("Unsupported border style: " styleText)
+    }
+}
+
+GetImagesFolderPath() {
+    return A_ScriptDir "\images"
+}
+
+EnsureImagesFolderExists() {
+    imagesFolder := GetImagesFolderPath()
+    if !DirExist(imagesFolder)
+        DirCreate(imagesFolder)
+    return imagesFolder
+}
+
+IsAbsoluteFilePath(pathText) {
+    normalizedPath := StrReplace(Format("{}", pathText), "/", "\")
+    return RegExMatch(normalizedPath, "i)^(?:[A-Z]:\\|\\\\)")
+}
+
+NormalizeStoredImageReference(imagePath) {
+    imageText := Trim(Format("{}", imagePath))
+    if imageText = ""
+        return ""
+
+    imageText := StrReplace(imageText, "/", "\")
+    imagesFolder := StrReplace(GetImagesFolderPath(), "/", "\")
+    normalizedImagesFolder := RTrim(imagesFolder, "\")
+    if InStr(StrLower(imageText), StrLower(normalizedImagesFolder "\")) = 1
+        return LTrim(SubStr(imageText, StrLen(normalizedImagesFolder) + 2), "\")
+    if RegExMatch(imageText, "i)^images\\")
+        return SubStr(imageText, 8)
+    return imageText
+}
+
+ResolveButtonImagePath(imagePath) {
+    imageText := Trim(Format("{}", imagePath))
+    if imageText = ""
+        return ""
+
+    imageText := StrReplace(imageText, "/", "\")
+    if IsAbsoluteFilePath(imageText)
+        return FileExist(imageText) ? imageText : ""
+
+    relativeImagePath := NormalizeStoredImageReference(imageText)
+    if relativeImagePath = ""
+        return ""
+
+    imagesPath := GetImagesFolderPath() "\" relativeImagePath
+    if FileExist(imagesPath)
+        return imagesPath
+
+    legacyPath := A_ScriptDir "\" relativeImagePath
+    if FileExist(legacyPath)
+        return legacyPath
+
+    return ""
+}
+
+IsPathInImagesFolder(filePath) {
+    normalizedFilePath := StrReplace(Format("{}", filePath), "/", "\")
+    normalizedImagesFolder := RTrim(StrReplace(GetImagesFolderPath(), "/", "\"), "\")
+    return InStr(StrLower(normalizedFilePath), StrLower(normalizedImagesFolder "\")) = 1
+}
+
+GetImageEditorValue(imagePath) {
+    return NormalizeStoredImageReference(imagePath)
+}
+
+NormalizeSelectedImagePath(selectedPath) {
+    normalizedPath := StrReplace(Trim(Format("{}", selectedPath)), "/", "\")
+    if normalizedPath = ""
+        return ""
+    if !IsPathInImagesFolder(normalizedPath)
+        throw Error("Button images must be selected from the images folder or one of its subfolders.")
+    return NormalizeStoredImageReference(normalizedPath)
 }
 
 PrepareSendKeyInput(keyValue) {
@@ -252,6 +339,38 @@ PageCycleAction() {
     return MakeAction([], "", true, "PageCycle")
 }
 
+#Include StarHUD-active-config.ahk
+
+if !IsSet(ToggleHotkey)
+    ToggleHotkey := "F20"
+if !IsSet(ShowButtonKeys)
+    ShowButtonKeys := true
+if !IsSet(ShowOuterBorder)
+    ShowOuterBorder := true
+
+ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
+ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
+ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
+ManagedLayoutEndMarker := "; === MANAGED BUTTON LAYOUT END ==="
+GridRows := ButtonPages[1].Length
+GridCols := ButtonPages[1][1].Length
+GuiW := GridMargin * 2 + GridCols * BtnSize + (GridCols - 1) * BtnGap
+GuiH := GridMargin * 2 + GridRows * BtnSize + (GridRows - 1) * BtnGap
+LastActiveHwnd := 0
+PanelVisible := false
+CurrentPageIndex := 1
+CenterClientX := GridMargin + Floor(GridCols / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
+CenterClientY := GridMargin + Floor(GridRows / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
+PageGuis := []
+EditMode := false
+EditSwapSelection := 0
+EditDialogState := 0
+ConfigDialogState := 0
+CopiedButtonCfg := 0
+RegisteredToggleHotkey := ""
+RegisteredEditToggleHotkey := ""
+GuiPictureBitmaps := Map()
+
 IsPageCycleAction(action) {
     return IsObject(action) && action.HasOwnProp("isPageCycle") && action.isPageCycle
 }
@@ -282,18 +401,21 @@ CloneButtonCfg(cfg) {
         CloneAction(cfg.action),
         cfg.borderColor,
         cfg.textColor,
-        cfg.doubleBorder,
+        cfg.borderStyle,
         cfg.imagePath,
         cfg.frameColor,
         cfg.backgroundColor,
-        cfg.titleLineMode
+        cfg.titleLineMode,
+        cfg.imageFitMode,
+        cfg.showTextOnImage,
+        cfg.showKeysOnImage
     )
 }
 
 RefreshCenterButtonTemplate() {
     global CenterButtonCfg, CenterLogoPath, FillColor
 
-    CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", false, CenterLogoPath, "", FillColor)
+    CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", CenterLogoPath, "", FillColor)
 }
 
 IsCenterCell(rowIndex, colIndex) {
@@ -385,12 +507,12 @@ GetActionSteps(action) {
     return action
 }
 
-GetButtonDisplayText(cfg) {
+GetButtonDisplayText(cfg, showTitle := true, showKeys := true) {
     global ShowButtonKeys
 
-    titleText := FormatButtonTitle(cfg.text, cfg.titleLineMode)
+    titleText := showTitle ? FormatButtonTitle(cfg.text, cfg.titleLineMode) : ""
     shortcutLabel := GetActionShortcutLabel(cfg.action)
-    if !ShowButtonKeys || shortcutLabel = ""
+    if !ShowButtonKeys || !showKeys || shortcutLabel = ""
         return titleText
     if titleText = ""
         return shortcutLabel
@@ -495,19 +617,24 @@ SerializeButtonCfg(cfg) {
 
     if IsCenterButtonConfig(cfg)
         return "CenterButtonCfg"
-    if !HasVisualContent(cfg) && cfg.imagePath = "" && cfg.borderColor = "00FF88" && cfg.textColor = "00FF88" && !cfg.doubleBorder && cfg.frameColor = FrameColor && cfg.backgroundColor = FillColor && cfg.titleLineMode = "single"
+    if !HasVisualContent(cfg) && cfg.imagePath = "" && cfg.borderColor = "00FF88" && cfg.textColor = "00FF88" && cfg.borderStyle = "single" && cfg.frameColor = FrameColor && cfg.backgroundColor = FillColor && cfg.titleLineMode = "single" && cfg.imageFitMode = "cover" && !cfg.showTextOnImage && !cfg.showKeysOnImage
         return "ButtonCfg()"
 
-    return "ButtonCfg("
+    serializedButton := "ButtonCfg("
         . SerializeAhkString(cfg.text) ", "
         . SerializeAction(cfg.action) ", "
         . SerializeAhkString(cfg.borderColor) ", "
         . SerializeAhkString(cfg.textColor) ", "
-        . BoolToAhk(cfg.doubleBorder) ", "
+        . SerializeBorderStyle(cfg.borderStyle) ", "
         . SerializeImagePath(cfg.imagePath) ", "
         . SerializeAhkString(cfg.frameColor) ", "
         . SerializeAhkString(cfg.backgroundColor) ", "
-        . SerializeAhkString(cfg.titleLineMode) ")"
+        . SerializeAhkString(cfg.titleLineMode)
+    if cfg.imageFitMode != "cover" || cfg.showTextOnImage || cfg.showKeysOnImage
+        serializedButton .= ", " SerializeAhkString(cfg.imageFitMode)
+    if cfg.showTextOnImage || cfg.showKeysOnImage
+        serializedButton .= ", " BoolToAhk(cfg.showTextOnImage) ", " BoolToAhk(cfg.showKeysOnImage)
+    return serializedButton ")"
 }
 
 IsCenterButtonConfig(cfg) {
@@ -518,8 +645,23 @@ IsCenterButtonConfig(cfg) {
         && IsPageCycleAction(cfg.action)
         && cfg.borderColor = "FFFFFF"
         && cfg.textColor = "FFFFFF"
-        && !cfg.doubleBorder
+        && cfg.borderStyle = "none"
         && cfg.backgroundColor = FillColor
+        && cfg.imageFitMode = "cover"
+        && !cfg.showTextOnImage
+        && !cfg.showKeysOnImage
+}
+
+SerializeBorderStyle(borderStyle) {
+    switch NormalizeBorderStyle(borderStyle)
+    {
+        case "single":
+            return "false"
+        case "double":
+            return "true"
+        case "none":
+            return SerializeAhkString("none")
+    }
 }
 
 SerializeAction(action) {
@@ -593,10 +735,13 @@ ArrayJoin(values, separator := "") {
 }
 
 GetConfigFilePath(fileName := "") {
-    global ConfigFilePath
+    global ActiveConfigFileName
 
     if fileName = ""
-        return ConfigFilePath
+    {
+        activeFileName := IsSet(ActiveConfigFileName) && ActiveConfigFileName != "" ? ActiveConfigFileName : "StarHUD-config.ahk"
+        return A_ScriptDir "\" activeFileName
+    }
     return A_ScriptDir "\" fileName
 }
 
@@ -822,6 +967,8 @@ ApplyConfigCompatibilityMigrations(configText) {
     settingCommentLines := [
         "; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them."
         , '; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.'
+        , "; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it."
+        , "; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically."
     ]
     controlCommentLines := [
         "; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode."
@@ -829,12 +976,25 @@ ApplyConfigCompatibilityMigrations(configText) {
         , "; In edit mode, RAlt+click the center button to go to the next page."
         , "; In edit mode, plain-click a non-center button to edit its title, colors, border style, and action."
         , "; In edit mode, hold RAlt and click one non-center button, then another, to swap/move them."
+        , "; Use the button editor Browse button to pick button images from the images folder, and Open Images in the config dialog to open that folder."
         , "; The button editor also supports Delete, Copy, and Paste so you can clear or duplicate buttons quickly."
         , "; Hiding the HUD always turns edit mode off."
     ]
 
+    configText := RegExReplace(
+        configText,
+        'm)^CenterLogoFile\s*:=\s*"star-citizen-logo-bright\.png"\s*$',
+        'CenterLogoFile := "images\StarHUD-center-logo-200x200.png"'
+    )
+    configText := RegExReplace(
+        configText,
+        'm)^CenterLogoFile\s*:=\s*"StarHUD-center-logo\.png"\s*$',
+        'CenterLogoFile := "images\StarHUD-center-logo-100x100.png"'
+    )
     configText := UpsertConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys), "StealMouseInput")
     configText := UpsertConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey), "ShowButtonKeys")
+    configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ToggleHotkey")
+    configText := UpsertConfigAssignment(configText, "CenterLogoFile", SerializeAhkString("images\StarHUD-center-logo-200x200.png"), "ShowOuterBorder")
     configText := ReplaceOrInsertCommentBlock(
         configText,
         settingCommentLines,
@@ -854,6 +1014,14 @@ ApplyConfigCompatibilityMigrations(configText) {
 EnsureConfigFileCompatibility(filePath := "") {
     if filePath = ""
         filePath := GetConfigFilePath()
+    if !FileExist(filePath)
+    {
+        fallbackPath := GetConfigFilePath("StarHUD-config.ahk")
+        if filePath != fallbackPath && FileExist(fallbackPath)
+            filePath := fallbackPath
+    }
+    if !FileExist(filePath)
+        return false
 
     originalText := FileRead(filePath, "UTF-8")
     migratedText := ApplyConfigCompatibilityMigrations(originalText)
@@ -882,7 +1050,7 @@ SerializeSizeConfigValue(sizeValue) {
 }
 
 WriteConfigStateToFile(createBackup := false, filePath := "") {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, StealMouseInput, ToggleHotkey
+    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     if filePath = ""
         filePath := GetConfigFilePath()
@@ -900,6 +1068,7 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     configText := ReplaceConfigAssignment(configText, "StealMouseInput", BoolToAhk(StealMouseInput))
     configText := ReplaceConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys))
     configText := ReplaceConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey))
+    configText := ReplaceConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder))
     configText := ReplaceManagedLayoutBlock(configText)
 
     file := FileOpen(filePath, "w", "UTF-8")
@@ -909,36 +1078,73 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     file.Close()
 }
 
-CreateButtonCell(gui, textPlacements, pageIndex, rowIndex, colIndex, cfg, x, y, size := 108) {
+CreateButtonCell(gui, textPlacements, pageIndex, rowIndex, colIndex, cfg, x, y, size := 108, createdControls := 0) {
     global BorderThickness, CornerRadius, FrameInset, InnerBorderInset, InnerBorderThickness, PrimaryBorderInset
 
     if IsSelectedCell(pageIndex, rowIndex, colIndex)
-        CreateSolidLayer(gui, x - 4, y - 4, size + 8, size + 8, "FFFFFF", CornerRadius)
+        CreateSolidLayer(gui, x - 4, y - 4, size + 8, size + 8, "FFFFFF", CornerRadius, createdControls)
 
     if !HasVisualContent(cfg)
         return
 
-    if cfg.imagePath != "" && FileExist(cfg.imagePath)
+    resolvedImagePath := ResolveButtonImagePath(cfg.imagePath)
+    if ShowOuterBorder
     {
-        CreateSolidLayer(gui, x, y, size, size, cfg.backgroundColor, CornerRadius)
-        gui.Add("Picture", "x" x " y" y " w" size " h" size, cfg.imagePath)
-        return
+        CreateSolidLayer(gui, x, y, size, size, cfg.frameColor, CornerRadius, createdControls)
+        CreateSolidLayer(gui, x + FrameInset, y + FrameInset, size - FrameInset * 2, size - FrameInset * 2, cfg.backgroundColor, Max(0, CornerRadius - FrameInset), createdControls)
+        contentInset := FrameInset
+        contentRadius := Max(0, CornerRadius - FrameInset)
+    }
+    else
+    {
+        CreateSolidLayer(gui, x, y, size, size, cfg.backgroundColor, CornerRadius, createdControls)
+        contentInset := 0
+        contentRadius := CornerRadius
     }
 
-    CreateSolidLayer(gui, x, y, size, size, cfg.frameColor, CornerRadius)
-    CreateSolidLayer(gui, x + FrameInset, y + FrameInset, size - FrameInset * 2, size - FrameInset * 2, cfg.backgroundColor, Max(0, CornerRadius - FrameInset))
-    CreateSolidLayer(gui, x + PrimaryBorderInset, y + PrimaryBorderInset, size - PrimaryBorderInset * 2, size - PrimaryBorderInset * 2, cfg.borderColor, Max(0, CornerRadius - PrimaryBorderInset))
-    innerInset := PrimaryBorderInset + BorderThickness
-    CreateSolidLayer(gui, x + innerInset, y + innerInset, size - innerInset * 2, size - innerInset * 2, cfg.backgroundColor, Max(0, CornerRadius - innerInset))
-
-    if cfg.doubleBorder
+    switch cfg.borderStyle
     {
-        CreateSolidLayer(gui, x + InnerBorderInset, y + InnerBorderInset, size - InnerBorderInset * 2, size - InnerBorderInset * 2, cfg.borderColor, Max(0, CornerRadius - InnerBorderInset))
-        innerFillInset := InnerBorderInset + InnerBorderThickness
-        CreateSolidLayer(gui, x + innerFillInset, y + innerFillInset, size - innerFillInset * 2, size - innerFillInset * 2, cfg.backgroundColor, Max(0, CornerRadius - innerFillInset))
+        case "double":
+            CreateSolidLayer(gui, x + PrimaryBorderInset, y + PrimaryBorderInset, size - PrimaryBorderInset * 2, size - PrimaryBorderInset * 2, cfg.borderColor, Max(0, CornerRadius - PrimaryBorderInset), createdControls)
+            innerInset := PrimaryBorderInset + BorderThickness
+            CreateSolidLayer(gui, x + innerInset, y + innerInset, size - innerInset * 2, size - innerInset * 2, cfg.backgroundColor, Max(0, CornerRadius - innerInset), createdControls)
+            CreateSolidLayer(gui, x + InnerBorderInset, y + InnerBorderInset, size - InnerBorderInset * 2, size - InnerBorderInset * 2, cfg.borderColor, Max(0, CornerRadius - InnerBorderInset), createdControls)
+            innerFillInset := InnerBorderInset + InnerBorderThickness
+            CreateSolidLayer(gui, x + innerFillInset, y + innerFillInset, size - innerFillInset * 2, size - innerFillInset * 2, cfg.backgroundColor, Max(0, CornerRadius - innerFillInset), createdControls)
+            contentInset := innerFillInset
+            contentRadius := Max(0, CornerRadius - innerFillInset)
+
+        case "single":
+            CreateSolidLayer(gui, x + PrimaryBorderInset, y + PrimaryBorderInset, size - PrimaryBorderInset * 2, size - PrimaryBorderInset * 2, cfg.borderColor, Max(0, CornerRadius - PrimaryBorderInset), createdControls)
+            innerInset := PrimaryBorderInset + BorderThickness
+            CreateSolidLayer(gui, x + innerInset, y + innerInset, size - innerInset * 2, size - innerInset * 2, cfg.backgroundColor, Max(0, CornerRadius - innerInset), createdControls)
+            contentInset := innerInset
+            contentRadius := Max(0, CornerRadius - innerInset)
+
+        case "none":
+            ; No inner border lines; the frame shell still renders around the content area.
     }
 
-    buttonText := GetButtonDisplayText(cfg)
+    contentX := x + contentInset
+    contentY := y + contentInset
+    contentSize := size - contentInset * 2
+
+    if resolvedImagePath != ""
+    {
+        imageCtrl := gui.Add("Picture", "x" contentX " y" contentY " w" contentSize " h" contentSize " +0xE", "")
+        if IsObject(createdControls)
+            createdControls.Push(imageCtrl)
+        ApplyRoundedRegion(imageCtrl.Hwnd, contentSize, contentSize, contentRadius)
+        hBitmap := CreateFittedImageBitmap(resolvedImagePath, cfg.imageFitMode, contentSize, contentSize, cfg.backgroundColor)
+        if hBitmap
+            SetManagedPictureBitmap(gui.Hwnd, imageCtrl, hBitmap)
+        else
+            SetManagedPictureFromFile(gui.Hwnd, imageCtrl, resolvedImagePath, contentSize, contentSize)
+    }
+
+    buttonText := resolvedImagePath != ""
+        ? GetButtonDisplayText(cfg, cfg.showTextOnImage, cfg.showKeysOnImage)
+        : GetButtonDisplayText(cfg)
     if buttonText != ""
     {
         lineGap := 2
@@ -950,6 +1156,8 @@ CreateButtonCell(gui, textPlacements, pageIndex, rowIndex, colIndex, cfg, x, y, 
             txt := gui.Add("Text", "x-2000 y-2000 Center +0x200 +BackgroundTrans", lineText)
             txt.SetFont("s9 Bold", "Segoe UI")
             txt.Opt("c" cfg.textColor)
+            if IsObject(createdControls)
+                createdControls.Push(txt)
             controls.Push(txt)
         }
 
@@ -957,13 +1165,179 @@ CreateButtonCell(gui, textPlacements, pageIndex, rowIndex, colIndex, cfg, x, y, 
     }
 }
 
-CreateSolidLayer(gui, x, y, w, h, color, radius := 0) {
+CreateSolidLayer(gui, x, y, w, h, color, radius := 0, createdControls := 0) {
     if w <= 0 || h <= 0
         return
 
     ctrl := gui.Add("Text", "x" x " y" y " w" w " h" h " Background" color, "")
+    if IsObject(createdControls)
+        createdControls.Push(ctrl)
     if radius > 0
         ApplyRoundedRegion(ctrl.Hwnd, w, h, radius)
+    return ctrl
+}
+
+CreateFittedImageBitmap(imagePath, fitMode, targetW, targetH, backgroundColor := "000000") {
+    fitMode := NormalizeImageFitMode(fitMode)
+    if imagePath = "" || !FileExist(imagePath) || targetW <= 0 || targetH <= 0
+        return 0
+
+    sourceBitmapHandle := 0
+    pSourceImage := 0
+    pCanvasBitmap := 0
+    pGraphics := 0
+    hBitmap := 0
+
+    try
+    {
+        sourceBitmapHandle := LoadPicture(imagePath, "", &imageType)
+        if !sourceBitmapHandle
+            return 0
+        if DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", sourceBitmapHandle, "Ptr", 0, "Ptr*", &pSourceImage := 0)
+            return 0
+        DllCall("gdiplus\GdipGetImageWidth", "Ptr", pSourceImage, "UInt*", &sourceW := 0)
+        DllCall("gdiplus\GdipGetImageHeight", "Ptr", pSourceImage, "UInt*", &sourceH := 0)
+        if sourceW <= 0 || sourceH <= 0
+            return 0
+
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", targetW, "Int", targetH, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &pCanvasBitmap := 0)
+            return 0
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", pCanvasBitmap, "Ptr*", &pGraphics := 0)
+            return 0
+
+        DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", pGraphics, "Int", 7)
+        DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", pGraphics, "Int", 2)
+        DllCall("gdiplus\GdipGraphicsClear", "Ptr", pGraphics, "UInt", ("0xFF" NormalizeColorInput(backgroundColor, "000000")) + 0)
+
+        switch fitMode
+        {
+            case "stretch":
+                destX := 0, destY := 0, destW := targetW, destH := targetH
+                srcX := 0, srcY := 0, srcW := sourceW, srcH := sourceH
+
+            case "contain":
+                scale := Min(targetW / sourceW, targetH / sourceH)
+                destW := Max(1, Round(sourceW * scale))
+                destH := Max(1, Round(sourceH * scale))
+                destX := Floor((targetW - destW) / 2)
+                destY := Floor((targetH - destH) / 2)
+                srcX := 0, srcY := 0, srcW := sourceW, srcH := sourceH
+
+            case "center":
+                destW := sourceW
+                destH := sourceH
+                destX := Floor((targetW - destW) / 2)
+                destY := Floor((targetH - destH) / 2)
+                srcX := 0, srcY := 0, srcW := sourceW, srcH := sourceH
+
+            default:
+                scale := Max(targetW / sourceW, targetH / sourceH)
+                srcW := Max(1, Round(targetW / scale))
+                srcH := Max(1, Round(targetH / scale))
+                srcX := Max(0, Floor((sourceW - srcW) / 2))
+                srcY := Max(0, Floor((sourceH - srcH) / 2))
+                destX := 0, destY := 0, destW := targetW, destH := targetH
+        }
+
+        DllCall(
+            "gdiplus\GdipDrawImageRectRectI",
+            "Ptr", pGraphics,
+            "Ptr", pSourceImage,
+            "Int", destX,
+            "Int", destY,
+            "Int", destW,
+            "Int", destH,
+            "Int", srcX,
+            "Int", srcY,
+            "Int", srcW,
+            "Int", srcH,
+            "Int", 2,
+            "Ptr", 0,
+            "Ptr", 0,
+            "Ptr", 0
+        )
+        if DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", pCanvasBitmap, "Ptr*", &hBitmap := 0, "UInt", 0x00000000)
+            hBitmap := 0
+    }
+    finally
+    {
+        if pGraphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", pGraphics)
+        if pCanvasBitmap
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", pCanvasBitmap)
+        if pSourceImage
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", pSourceImage)
+        if sourceBitmapHandle
+            DllCall("DeleteObject", "Ptr", sourceBitmapHandle)
+    }
+
+    return hBitmap
+}
+
+SetManagedPictureBitmap(guiHwnd, pictureCtrl, hBitmap) {
+    global GuiPictureBitmaps
+
+    guiKey := Format("{}", guiHwnd)
+    ctrlKey := Format("{}", pictureCtrl.Hwnd)
+    if !GuiPictureBitmaps.Has(guiKey)
+        GuiPictureBitmaps[guiKey] := Map()
+
+    guiBitmaps := GuiPictureBitmaps[guiKey]
+    if guiBitmaps.Has(ctrlKey)
+    {
+        oldBitmap := guiBitmaps[ctrlKey]
+        if oldBitmap && oldBitmap != hBitmap
+            DllCall("DeleteObject", "Ptr", oldBitmap)
+    }
+
+    guiBitmaps[ctrlKey] := hBitmap
+    DllCall("SendMessage", "Ptr", pictureCtrl.Hwnd, "UInt", 0x0172, "Ptr", 0, "Ptr", hBitmap, "Ptr")
+}
+
+SetManagedPictureFromFile(guiHwnd, pictureCtrl, imagePath, targetW := 0, targetH := 0) {
+    loadOptions := ""
+    if targetW > 0
+        loadOptions .= "w" targetW
+    if targetH > 0
+        loadOptions .= (loadOptions = "" ? "" : " ") "h" targetH
+    hBitmap := LoadPicture(imagePath, loadOptions, &imageType)
+    if !hBitmap
+        return false
+    SetManagedPictureBitmap(guiHwnd, pictureCtrl, hBitmap)
+    return true
+}
+
+ReleaseManagedControlBitmap(guiHwnd, ctrlHwnd) {
+    global GuiPictureBitmaps
+
+    guiKey := Format("{}", guiHwnd)
+    ctrlKey := Format("{}", ctrlHwnd)
+    if !GuiPictureBitmaps.Has(guiKey)
+        return
+
+    guiBitmaps := GuiPictureBitmaps[guiKey]
+    if !guiBitmaps.Has(ctrlKey)
+        return
+
+    hBitmap := guiBitmaps[ctrlKey]
+    if hBitmap
+        DllCall("DeleteObject", "Ptr", hBitmap)
+    guiBitmaps.Delete(ctrlKey)
+}
+
+ReleaseGuiPictureBitmaps(guiHwnd) {
+    global GuiPictureBitmaps
+
+    guiKey := Format("{}", guiHwnd)
+    if !GuiPictureBitmaps.Has(guiKey)
+        return
+
+    for _, hBitmap in GuiPictureBitmaps[guiKey]
+    {
+        if hBitmap
+            DllCall("DeleteObject", "Ptr", hBitmap)
+    }
+    GuiPictureBitmaps.Delete(guiKey)
 }
 
 BuildGrid(gui, pageIndex, layout, textPlacements) {
@@ -1217,6 +1591,7 @@ RebuildPageGuis(preserveVisible := true) {
 
     for _, pageGui in PageGuis
     {
+        ReleaseGuiPictureBitmaps(pageGui.Hwnd)
         try pageGui.Destroy()
     }
 
@@ -1389,7 +1764,7 @@ ToggleConfigEditor() {
 }
 
 OpenButtonEditor(pageIndex, rowIndex, colIndex) {
-    global ButtonPages, CopiedButtonCfg, EditDialogState, PageGuis, CurrentPageIndex
+    global ButtonPages, CenterLogoPath, CopiedButtonCfg, EditDialogState, PageGuis, CurrentPageIndex
 
     cfg := ButtonPages[pageIndex][rowIndex][colIndex]
     actionType := GetButtonActionType(cfg.action)
@@ -1408,10 +1783,24 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
     borderColorEdit := editorGui.Add("Edit", "xm w120", cfg.borderColor)
     borderColorPickButton := editorGui.Add("Button", "x+8 yp-2 w54", "Pick")
 
-    borderStyleOptions := ["single", "double"]
+    borderStyleOptions := ["single", "double", "none"]
+    imageFitOptions := ["cover", "contain", "stretch", "center"]
     editorGui.Add("Text", "xm y+8", "Border style")
     borderStyleList := editorGui.Add("DropDownList", "xm w160", borderStyleOptions)
-    ChooseDropDownValue(borderStyleList, cfg.doubleBorder ? "double" : "single", borderStyleOptions)
+    ChooseDropDownValue(borderStyleList, cfg.borderStyle, borderStyleOptions)
+
+    editorGui.Add("Text", "xm y+8", "Image")
+    imagePathEdit := editorGui.Add("Edit", "xm w260 ReadOnly", GetImageEditorValue(cfg.imagePath))
+    browseImageButton := editorGui.Add("Button", "xm y+6 w80", "Browse")
+    clearImageButton := editorGui.Add("Button", "x+8 w80", "Clear")
+    editorGui.Add("Text", "xm y+8", "Image fit")
+    imageFitList := editorGui.Add("DropDownList", "xm w160", imageFitOptions)
+    ChooseDropDownValue(imageFitList, cfg.imageFitMode, imageFitOptions)
+    showTextOnImageCheck := editorGui.Add("CheckBox", "xm y+8", "Show text over image")
+    showTextOnImageCheck.Value := cfg.showTextOnImage ? 1 : 0
+    showKeysOnImageCheck := editorGui.Add("CheckBox", "xm y+4", "Show keys over image")
+    showKeysOnImageCheck.Value := cfg.showKeysOnImage ? 1 : 0
+    editorGui.Add("Text", "xm y+8 c808080", "The HUD itself is the live preview. Save keeps changes; Cancel reverts them.")
 
     actionTypeOptions := ["None", "SendKey", "ChordKey", "HoldKey", "DoubleTapKey", "PageCycle"]
     editorGui.Add("Text", "xm y+8", "Action type")
@@ -1429,9 +1818,6 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
     delayLabel := editorGui.Add("Text", "x+12 yp", "Delay ms")
     delayEdit := editorGui.Add("Edit", "x+0 w120", GetActionEditorDelayValue(cfg.action))
 
-    if cfg.imagePath != ""
-        editorGui.Add("Text", "xm y+8 cAAAAAA", "Image buttons keep their current image path.")
-
     deleteButton := editorGui.Add("Button", "xm y+12 w76", "Delete")
     copyButton := editorGui.Add("Button", "x+8 w76", "Copy")
     pasteButton := editorGui.Add("Button", "x+8 w76", "Paste")
@@ -1440,6 +1826,7 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
 
     EditDialogState := {
         gui: editorGui,
+        sourceCfg: CloneButtonCfg(cfg),
         pageIndex: pageIndex,
         row: rowIndex,
         col: colIndex,
@@ -1447,6 +1834,12 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
         textColorEdit: textColorEdit,
         borderColorEdit: borderColorEdit,
         borderStyleList: borderStyleList,
+        imagePathEdit: imagePathEdit,
+        browseImageButton: browseImageButton,
+        clearImageButton: clearImageButton,
+        imageFitList: imageFitList,
+        showTextOnImageCheck: showTextOnImageCheck,
+        showKeysOnImageCheck: showKeysOnImageCheck,
         actionTypeList: actionTypeList,
         key1Label: key1Label,
         key1Edit: key1Edit,
@@ -1462,9 +1855,22 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
         pasteButton: pasteButton
     }
 
+    nameEdit.OnEvent("Change", UpdateButtonEditorPreview)
+    textColorEdit.OnEvent("Change", UpdateButtonEditorPreview)
+    borderColorEdit.OnEvent("Change", UpdateButtonEditorPreview)
+    borderStyleList.OnEvent("Change", UpdateButtonEditorPreview)
     actionTypeList.OnEvent("Change", UpdateButtonEditorFields)
+    key1Edit.OnEvent("Change", UpdateButtonEditorPreview)
+    key2Edit.OnEvent("Change", UpdateButtonEditorPreview)
+    durationEdit.OnEvent("Change", UpdateButtonEditorPreview)
+    delayEdit.OnEvent("Change", UpdateButtonEditorPreview)
     textColorPickButton.OnEvent("Click", PickButtonEditorColor.Bind("text"))
     borderColorPickButton.OnEvent("Click", PickButtonEditorColor.Bind("border"))
+    browseImageButton.OnEvent("Click", BrowseButtonImage)
+    clearImageButton.OnEvent("Click", ClearButtonImage)
+    imageFitList.OnEvent("Change", UpdateButtonEditorPreview)
+    showTextOnImageCheck.OnEvent("Click", UpdateButtonEditorPreview)
+    showKeysOnImageCheck.OnEvent("Click", UpdateButtonEditorPreview)
     deleteButton.OnEvent("Click", DeleteButtonFromEditor)
     copyButton.OnEvent("Click", CopyButtonFromEditor)
     pasteButton.OnEvent("Click", PasteButtonIntoEditor)
@@ -1475,6 +1881,7 @@ OpenButtonEditor(pageIndex, rowIndex, colIndex) {
     SetEditorControlEnabled(pasteButton, IsObject(CopiedButtonCfg))
     UpdateButtonEditorFields()
     editorGui.Show("AutoSize")
+    UpdateButtonEditorPreview()
 }
 
 ChooseDropDownValue(ctrl, value, options) {
@@ -1573,6 +1980,7 @@ UpdateButtonEditorFields(*) {
     }
 
     try EditDialogState.gui.Show("AutoSize")
+    UpdateButtonEditorPreview()
 }
 
 SetEditorControlEnabled(ctrl, isEnabled) {
@@ -1611,6 +2019,118 @@ GetActionEditorDelayValue(action) {
     return ""
 }
 
+TryCreatePreviewAction(actionType, key1Value, key2Value, durationValue, delayValue) {
+    try
+    {
+        return CreateActionFromEditor(actionType, key1Value, key2Value, durationValue, delayValue)
+    }
+    return 0
+}
+
+BuildButtonCfgFromEditor() {
+    global EditDialogState
+
+    sourceCfg := EditDialogState.sourceCfg
+    titleInfo := ParseButtonTitleFromEditor(EditDialogState.nameEdit.Value)
+    return ButtonCfg(
+        titleInfo.text,
+        TryCreatePreviewAction(
+            EditDialogState.actionTypeList.Text,
+            EditDialogState.key1Edit.Value,
+            EditDialogState.key2Edit.Value,
+            EditDialogState.durationEdit.Value,
+            EditDialogState.delayEdit.Value
+        ),
+        NormalizeColorInput(EditDialogState.borderColorEdit.Value, sourceCfg.borderColor),
+        NormalizeColorInput(EditDialogState.textColorEdit.Value, sourceCfg.textColor),
+        EditDialogState.borderStyleList.Text,
+        EditDialogState.imagePathEdit.Value,
+        sourceCfg.frameColor,
+        sourceCfg.backgroundColor,
+        titleInfo.lineMode,
+        EditDialogState.imageFitList.Text,
+        EditDialogState.showTextOnImageCheck.Value = 1,
+        EditDialogState.showKeysOnImageCheck.Value = 1
+    )
+}
+
+UpdateImageOverlayEditorControls(hasImage) {
+    global EditDialogState
+
+    if !IsObject(EditDialogState)
+        return
+
+    EditDialogState.showTextOnImageCheck.Opt(hasImage ? "-Hidden" : "+Hidden")
+    EditDialogState.showKeysOnImageCheck.Opt(hasImage ? "-Hidden" : "+Hidden")
+    SetEditorControlEnabled(EditDialogState.imageFitList, hasImage)
+    SetEditorControlEnabled(EditDialogState.showTextOnImageCheck, hasImage)
+    SetEditorControlEnabled(EditDialogState.showKeysOnImageCheck, hasImage)
+}
+
+ApplyButtonEditorPreview() {
+    global ButtonPages, EditDialogState, PanelVisible
+
+    if !IsObject(EditDialogState)
+        return
+
+    ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := BuildButtonCfgFromEditor()
+    RebuildPageGuis(PanelVisible)
+}
+
+RestoreButtonEditorSourceCfg() {
+    global ButtonPages, EditDialogState, PanelVisible
+
+    if !IsObject(EditDialogState)
+        return
+
+    ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := CloneButtonCfg(EditDialogState.sourceCfg)
+    RebuildPageGuis(PanelVisible)
+}
+
+BrowseButtonImage(*) {
+    global EditDialogState
+
+    if !IsObject(EditDialogState)
+        return
+
+    imagesFolder := EnsureImagesFolderExists()
+    selectedFile := FileSelect(3, imagesFolder "\", "Select button image", "Image Files (*.png; *.jpg; *.jpeg; *.bmp; *.gif; *.ico)")
+    if selectedFile = ""
+        return
+
+    try
+    {
+        EditDialogState.imagePathEdit.Value := NormalizeSelectedImagePath(selectedFile)
+        UpdateButtonEditorPreview()
+    }
+    catch as err
+    {
+        MsgBox(err.Message, "StarHUD Edit Error")
+    }
+}
+
+ClearButtonImage(*) {
+    global EditDialogState
+
+    if !IsObject(EditDialogState)
+        return
+
+    EditDialogState.imagePathEdit.Value := ""
+    UpdateButtonEditorPreview()
+}
+
+UpdateButtonEditorPreview(*) {
+    global EditDialogState
+
+    if !IsObject(EditDialogState)
+        return
+
+    hasImage := Trim(EditDialogState.imagePathEdit.Value) != ""
+    SetEditorControlEnabled(EditDialogState.clearImageButton, hasImage)
+    UpdateImageOverlayEditorControls(hasImage)
+    ApplyButtonEditorPreview()
+}
+
 SaveButtonEditor(*) {
     global ButtonPages, EditDialogState
 
@@ -1619,28 +2139,8 @@ SaveButtonEditor(*) {
 
     try
     {
-        cfg := ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col]
-        titleInfo := ParseButtonTitleFromEditor(EditDialogState.nameEdit.Value)
-        updatedCfg := ButtonCfg(
-            titleInfo.text,
-            CreateActionFromEditor(
-                EditDialogState.actionTypeList.Text,
-                EditDialogState.key1Edit.Value,
-                EditDialogState.key2Edit.Value,
-                EditDialogState.durationEdit.Value,
-                EditDialogState.delayEdit.Value
-            ),
-            NormalizeColorInput(EditDialogState.borderColorEdit.Value, cfg.borderColor),
-            NormalizeColorInput(EditDialogState.textColorEdit.Value, cfg.textColor),
-            EditDialogState.borderStyleList.Text = "double",
-            cfg.imagePath,
-            cfg.frameColor,
-            cfg.backgroundColor,
-            titleInfo.lineMode
-        )
-
-        ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := updatedCfg
-        CloseButtonEditor()
+        ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := BuildButtonCfgFromEditor()
+        DestroyButtonEditor()
         PersistButtonPages()
     }
     catch as err
@@ -1656,7 +2156,7 @@ DeleteButtonFromEditor(*) {
         return
 
     ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := ButtonCfg()
-    CloseButtonEditor()
+    DestroyButtonEditor()
     PersistButtonPages()
 }
 
@@ -1667,7 +2167,7 @@ CopyButtonFromEditor(*) {
         return
 
     CopiedButtonCfg := CloneButtonCfg(ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col])
-    CloseButtonEditor()
+    DestroyButtonEditor()
 }
 
 PasteButtonIntoEditor(*) {
@@ -1682,7 +2182,7 @@ PasteButtonIntoEditor(*) {
     }
 
     ButtonPages[EditDialogState.pageIndex][EditDialogState.row][EditDialogState.col] := CloneButtonCfg(CopiedButtonCfg)
-    CloseButtonEditor()
+    DestroyButtonEditor()
     PersistButtonPages()
 }
 
@@ -1735,14 +2235,20 @@ NormalizeColorInput(colorValue, fallbackValue := "") {
     return StrUpper(normalizedColor)
 }
 
-CloseButtonEditor(*) {
+DestroyButtonEditor() {
     global EditDialogState
 
     if IsObject(EditDialogState)
     {
+        ReleaseGuiPictureBitmaps(EditDialogState.gui.Hwnd)
         try EditDialogState.gui.Destroy()
         EditDialogState := 0
     }
+}
+
+CloseButtonEditor(*) {
+    RestoreButtonEditorSourceCfg()
+    DestroyButtonEditor()
 }
 
 PickButtonEditorColor(colorTarget, *) {
@@ -1760,7 +2266,10 @@ PickButtonEditorColor(colorTarget, *) {
 
     chosenColor := ChooseColorHex(ctrl.Value, EditDialogState.gui.Hwnd)
     if chosenColor != ""
+    {
         ctrl.Value := chosenColor
+        UpdateButtonEditorPreview()
+    }
 }
 
 GetSizeProfileOptions() {
@@ -1772,8 +2281,130 @@ GetSizeProfileOptions() {
     return options
 }
 
+OpenImagesFolder(*) {
+    Run('explorer.exe "' EnsureImagesFolderExists() '"')
+}
+
+CaptureConfigDialogPreviewState() {
+    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+
+    return {
+        size: Size,
+        cornerRadius: CornerRadius,
+        maskColor: MaskColor,
+        frameColor: FrameColor,
+        fillColor: FillColor,
+        openPositionMode: OpenPositionMode,
+        toggleHotkey: ToggleHotkey,
+        stealMouseInput: StealMouseInput,
+        showButtonKeys: ShowButtonKeys,
+        showOuterBorder: ShowOuterBorder
+    }
+}
+
+ApplyConfigDialogPreviewState(state) {
+    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+
+    oldFrameColor := FrameColor
+    oldFillColor := FillColor
+    oldToggleHotkey := ToggleHotkey
+
+    Size := NormalizeSizeKey(state.size)
+    CornerRadius := state.cornerRadius
+    MaskColor := state.maskColor
+    FrameColor := state.frameColor
+    FillColor := state.fillColor
+    OpenPositionMode := state.openPositionMode
+    ToggleHotkey := state.toggleHotkey
+    StealMouseInput := state.stealMouseInput
+    ShowButtonKeys := state.showButtonKeys
+    ShowOuterBorder := state.showOuterBorder
+
+    ApplyCurrentSizeProfile()
+    if oldToggleHotkey != ToggleHotkey
+        RegisterToggleHotkeys(ToggleHotkey)
+    RefreshCenterButtonTemplate()
+    UpdateButtonsForDefaultColorChange(oldFrameColor, oldFillColor)
+    RebuildPageGuis(PanelVisible)
+}
+
+BuildConfigDialogPreviewState(strict := true) {
+    global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, SizeProfiles, StealMouseInput, ToggleHotkey
+
+    if !IsObject(ConfigDialogState)
+        return 0
+
+    newSize := NormalizeSizeKey(ConfigDialogState.sizeList.Text)
+    if !SizeProfiles.Has(newSize)
+    {
+        if strict
+            throw Error("Unknown Size profile: " newSize)
+        return 0
+    }
+
+    try newToggleHotkey := NormalizeToggleHotkeyInput(ConfigDialogState.toggleHotkeyEdit.Value)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    try newCornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    try newMaskColor := NormalizeColorInput(ConfigDialogState.maskColorEdit.Value, MaskColor)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    try newFrameColor := NormalizeColorInput(ConfigDialogState.frameColorEdit.Value, FrameColor)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    try newFillColor := NormalizeColorInput(ConfigDialogState.fillColorEdit.Value, FillColor)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    return {
+        size: newSize,
+        cornerRadius: newCornerRadius,
+        maskColor: newMaskColor,
+        frameColor: newFrameColor,
+        fillColor: newFillColor,
+        openPositionMode: ConfigDialogState.openPositionList.Text,
+        toggleHotkey: newToggleHotkey,
+        stealMouseInput: ConfigDialogState.stealMouseInputCheck.Value = 1,
+        showButtonKeys: ConfigDialogState.showButtonKeysCheck.Value = 1,
+        showOuterBorder: ConfigDialogState.showOuterBorderCheck.Value = 1
+    }
+}
+
+UpdateConfigDialogPreview(*) {
+    previewState := BuildConfigDialogPreviewState(false)
+    if !IsObject(previewState)
+        return
+    ApplyConfigDialogPreviewState(previewState)
+}
+
 OpenConfigEditor() {
-    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, StealMouseInput, ToggleHotkey
+    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     configFileNames := GetAvailableConfigFiles()
     configDisplayNames := GetConfigDisplayNames(configFileNames)
@@ -1818,6 +2449,10 @@ OpenConfigEditor() {
     fillColorPickButton := configGui.Add("Button", "x+8 yp-2 w54", "Pick")
     configGui.Add("Text", "xm y+2 c808080", "Default inner fill color behind button labels.")
 
+    showOuterBorderCheck := configGui.Add("CheckBox", "xm y+8", "Show outer border")
+    showOuterBorderCheck.Value := ShowOuterBorder ? 1 : 0
+    configGui.Add("Text", "xm y+2 c808080", "Toggle the thin outer frame ring around each button.")
+
     configGui.Add("Text", "xm y+8", "Open position")
     openPositionList := configGui.Add("DropDownList", "xm w180", openPositionOptions)
     ChooseDropDownValue(openPositionList, OpenPositionMode, openPositionOptions)
@@ -1838,7 +2473,8 @@ OpenConfigEditor() {
     addPageButton := configGui.Add("Button", "xm y+14 w100", "Add Page")
     deletePageButton := configGui.Add("Button", "x+8 w100", "Delete Page")
     resetPageButton := configGui.Add("Button", "x+8 w100", "Reset Page")
-    openFolderButton := configGui.Add("Button", "xm y+8 w160", "Open File Location")
+    openFolderButton := configGui.Add("Button", "xm y+8 w150", "Open File Location")
+    openImagesButton := configGui.Add("Button", "x+8 w120", "Open Images")
     saveButton := configGui.Add("Button", "xm y+14 w120 Default", "Save")
     closeButton := configGui.Add("Button", "x+12 w120", "Close")
 
@@ -1854,12 +2490,20 @@ OpenConfigEditor() {
         maskColorEdit: maskColorEdit,
         frameColorEdit: frameColorEdit,
         fillColorEdit: fillColorEdit,
+        showOuterBorderCheck: showOuterBorderCheck,
         openPositionList: openPositionList,
         toggleHotkeyEdit: toggleHotkeyEdit,
         stealMouseInputCheck: stealMouseInputCheck,
-        showButtonKeysCheck: showButtonKeysCheck
+        showButtonKeysCheck: showButtonKeysCheck,
+        originalState: CaptureConfigDialogPreviewState()
     }
 
+    sizeList.OnEvent("Change", UpdateConfigDialogPreview)
+    cornerRadiusEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    maskColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    frameColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    fillColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    showOuterBorderCheck.OnEvent("Click", UpdateConfigDialogPreview)
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
     fillColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("fillColorEdit"))
@@ -1871,6 +2515,7 @@ OpenConfigEditor() {
     deletePageButton.OnEvent("Click", DeleteConfigPage)
     resetPageButton.OnEvent("Click", ResetConfigPage)
     openFolderButton.OnEvent("Click", OpenConfigFileLocation)
+    openImagesButton.OnEvent("Click", OpenImagesFolder)
     saveButton.OnEvent("Click", SaveConfigEditor)
     closeButton.OnEvent("Click", CloseConfigEditor)
     configGui.OnEvent("Close", CloseConfigEditor)
@@ -1932,7 +2577,7 @@ NewConfigFromDialog(*) {
     try
     {
         SaveConfigStateForSwitch()
-        CloseConfigEditor()
+        DestroyConfigEditor()
         targetFileName := PromptForConfigFileName("New")
         if targetFileName = ""
             return
@@ -1949,7 +2594,7 @@ CloneConfigFromDialog(*) {
     try
     {
         SaveConfigStateForSwitch()
-        CloseConfigEditor()
+        DestroyConfigEditor()
         targetFileName := PromptForConfigFileName("Clone")
         if targetFileName = ""
             return
@@ -2008,7 +2653,10 @@ PickConfigDialogColor(controlKey, *) {
     }
     chosenColor := ChooseColorHex(ctrl.Value, ConfigDialogState.gui.Hwnd)
     if chosenColor != ""
+    {
         ctrl.Value := chosenColor
+        UpdateConfigDialogPreview()
+    }
 }
 
 ChooseColorHex(initialHex := "", ownerHwnd := 0) {
@@ -2058,30 +2706,13 @@ ColorRefToHex(colorRef) {
 }
 
 ApplyConfigDialogValues() {
-    global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, Size, SizeProfiles, StealMouseInput, ToggleHotkey
+    global ConfigDialogState
 
     if !IsObject(ConfigDialogState)
         return
 
-    oldFrameColor := FrameColor
-    oldFillColor := FillColor
-    newSize := NormalizeSizeKey(ConfigDialogState.sizeList.Text)
-    if !SizeProfiles.Has(newSize)
-        throw Error("Unknown Size profile: " newSize)
-    newToggleHotkey := NormalizeToggleHotkeyInput(ConfigDialogState.toggleHotkeyEdit.Value)
-
-    Size := newSize
-    CornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
-    MaskColor := NormalizeColorInput(ConfigDialogState.maskColorEdit.Value, MaskColor)
-    FrameColor := NormalizeColorInput(ConfigDialogState.frameColorEdit.Value, FrameColor)
-    FillColor := NormalizeColorInput(ConfigDialogState.fillColorEdit.Value, FillColor)
-    OpenPositionMode := ConfigDialogState.openPositionList.Text
-    ToggleHotkey := newToggleHotkey
-    StealMouseInput := ConfigDialogState.stealMouseInputCheck.Value = 1
-    ShowButtonKeys := ConfigDialogState.showButtonKeysCheck.Value = 1
-    RegisterToggleHotkeys(ToggleHotkey)
-    RefreshCenterButtonTemplate()
-    UpdateButtonsForDefaultColorChange(oldFrameColor, oldFillColor)
+    appliedState := BuildConfigDialogPreviewState(true)
+    ApplyConfigDialogPreviewState(appliedState)
 }
 
 SaveConfigEditor(*) {
@@ -2089,7 +2720,7 @@ SaveConfigEditor(*) {
     {
         ApplyConfigDialogValues()
         PersistButtonPages()
-        CloseConfigEditor()
+        DestroyConfigEditor()
     }
     catch as err
     {
@@ -2098,7 +2729,7 @@ SaveConfigEditor(*) {
 }
 
 ReopenConfigEditor() {
-    CloseConfigEditor()
+    DestroyConfigEditor()
     OpenConfigEditor()
 }
 
@@ -2169,6 +2800,16 @@ OpenConfigFileLocation(*) {
 }
 
 CloseConfigEditor(*) {
+    global ConfigDialogState
+
+    if IsObject(ConfigDialogState)
+    {
+        ApplyConfigDialogPreviewState(ConfigDialogState.originalState)
+        DestroyConfigEditor()
+    }
+}
+
+DestroyConfigEditor() {
     global ConfigDialogState
 
     if IsObject(ConfigDialogState)
@@ -2293,5 +2934,6 @@ RegisterToggleHotkeys(toggleKey := "") {
 }
 
 ; ================== TOGGLE ==================
-EnsureConfigFileCompatibility()
+if EnsureConfigFileCompatibility()
+    Reload()
 RegisterToggleHotkeys()

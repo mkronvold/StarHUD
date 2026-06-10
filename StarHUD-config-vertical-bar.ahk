@@ -39,25 +39,29 @@ FillColor := "000000"
 ; OpenPositionMode: "auto-split", "mouse", "always-left", or "always-right"
 OpenPositionMode := "always-right"
 StealMouseInput := true
-CenterLogoFile := "star-citizen-logo-bright.png"
+ShowOuterBorder := true
+CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
-CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", false, CenterLogoPath, "", FillColor)
+CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", CenterLogoPath, "", FillColor)
 
 ; === BUTTON CONFIG ===
 ; Edit labels and actions here.
 ; Labels should only contain the button name. Shortcut and macro text is added automatically from the action config.
 ; Use SendKey("r"), DoubleTapKey("u"), HoldKey("b", 1000), or ChordKey("RAlt", "l").
-; Set doubleBorder to true/false to match the screenshot styling.
+; Set border style to "single", "double", or "none" to match the screenshot styling.
 ; Set OpenPositionMode to "auto-split", "mouse", "always-left", or "always-right".
 ; Set StealMouseInput to true to activate the HUD while it is shown so clicks/mouse movement do not reach the app underneath.
 ; Set StealMouseInput to false to keep the previous non-activating overlay behavior.
+; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
+; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
-; Press RAlt+F20 to toggle edit mode. If the HUD is already open, RAlt+click the center button to enter edit mode with the mouse.
+; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
 ; In edit mode, plain-click the center button to open the config dialog.
 ; In edit mode, RAlt+click the center button to go to the next page.
 ; In edit mode, plain-click a non-center button to edit its title, colors, border style, and action.
 ; In edit mode, hold RAlt and click one non-center button, then another, to swap/move them.
+; Use the button editor Browse button to pick button images from the images folder, and Open Images in the config dialog to open that folder.
 ; The button editor also supports Delete, Copy, and Paste so you can clear or duplicate buttons quickly.
 ; Hiding the HUD always turns edit mode off.
 ; The block between MANAGED BUTTON LAYOUT markers is rewritten by StarHUD edit mode.
