@@ -2223,7 +2223,8 @@ ParseEditorNumber(value, defaultValue) {
         return defaultValue
     if !RegExMatch(textValue, "^\d+$")
         throw Error("Expected a whole number, got: " textValue)
-    return textValue + 0
+    numValue := textValue + 0
+    return numValue
 }
 
 NormalizeColorInput(colorValue, fallbackValue := "") {
@@ -2397,10 +2398,21 @@ BuildConfigDialogPreviewState(strict := true) {
 }
 
 UpdateConfigDialogPreview(*) {
-    previewState := BuildConfigDialogPreviewState(false)
-    if !IsObject(previewState)
+    global ConfigDialogState
+    
+    if !IsObject(ConfigDialogState)
         return
-    ApplyConfigDialogPreviewState(previewState)
+    
+    try
+    {
+        previewState := BuildConfigDialogPreviewState(false)
+        if !IsObject(previewState)
+            return
+        ApplyConfigDialogPreviewState(previewState)
+    }
+    catch
+    {
+    }
 }
 
 OpenConfigEditor() {
@@ -2500,9 +2512,13 @@ OpenConfigEditor() {
 
     sizeList.OnEvent("Change", UpdateConfigDialogPreview)
     cornerRadiusEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    cornerRadiusEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     maskColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    maskColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     frameColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    frameColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     fillColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    fillColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     showOuterBorderCheck.OnEvent("Click", UpdateConfigDialogPreview)
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
