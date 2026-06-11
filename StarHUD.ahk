@@ -2538,6 +2538,7 @@ OpenConfigEditor() {
     configGui.OnEvent("Escape", CloseConfigEditor)
     UpdateConfigDialogPageInfo()
     configGui.Show("AutoSize")
+    SetTimer UpdateConfigDialogPreview, 50
 }
 
 UpdateConfigDialogPageInfo() {
@@ -2828,6 +2829,7 @@ CloseConfigEditor(*) {
 DestroyConfigEditor() {
     global ConfigDialogState
 
+    SetTimer UpdateConfigDialogPreview, 0
     if IsObject(ConfigDialogState)
     {
         try ConfigDialogState.gui.Destroy()
