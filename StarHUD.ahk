@@ -305,6 +305,39 @@ ApplySizeProfile(profile) {
     InnerBorderInset := profile.innerBorderInset
 }
 
+NormalizeButtonGapOverride(value, strict := true) {
+    textValue := Trim(Format("{}", value))
+    if textValue = ""
+        return ""
+    if !RegExMatch(textValue, "^\d+$")
+    {
+        if strict
+            throw Error("Button gap override must be a whole number.")
+        return ""
+    }
+    return textValue + 0
+}
+
+SerializeButtonGapOverrideValue(value) {
+    normalizedValue := NormalizeButtonGapOverride(value)
+    if normalizedValue = ""
+        return '""'
+    return normalizedValue + 0
+}
+
+GetEffectiveButtonGap(sizeKey := "") {
+    global BtnGap, ButtonGapOverride, Size, SizeProfiles
+
+    normalizedOverride := NormalizeButtonGapOverride(ButtonGapOverride, false)
+    if normalizedOverride != ""
+        return normalizedOverride
+    if sizeKey = ""
+        sizeKey := NormalizeSizeKey(Size)
+    if SizeProfiles.Has(sizeKey)
+        return SizeProfiles[sizeKey].btnGap
+    return BtnGap
+}
+
 NormalizeSizeKey(sizeKey) {
     return StrLower(Format("{}", sizeKey))
 }
@@ -343,6 +376,8 @@ PageCycleAction() {
 
 if !IsSet(ToggleHotkey)
     ToggleHotkey := "F20"
+if !IsSet(ButtonGapOverride)
+    ButtonGapOverride := ""
 if !IsSet(ShowButtonKeys)
     ShowButtonKeys := true
 if !IsSet(ShowOuterBorder)
@@ -461,12 +496,15 @@ RefreshLayoutMetrics() {
 }
 
 ApplyCurrentSizeProfile() {
-    global Size, SizeProfiles
+    global BtnGap, ButtonGapOverride, Size, SizeProfiles
 
     Size := NormalizeSizeKey(Size)
     if !SizeProfiles.Has(Size)
         throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
     ApplySizeProfile(SizeProfiles[Size])
+    overrideGap := NormalizeButtonGapOverride(ButtonGapOverride, false)
+    if overrideGap != ""
+        BtnGap := overrideGap
     RefreshLayoutMetrics()
 }
 
@@ -962,11 +1000,12 @@ ReplaceOrInsertCommentBlock(configText, desiredLines, afterAnchorText := "", bef
 }
 
 ApplyConfigCompatibilityMigrations(configText) {
-    global ShowButtonKeys, ToggleHotkey
+    global ButtonGapOverride, ShowButtonKeys, ToggleHotkey
 
     settingCommentLines := [
         "; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them."
         , '; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.'
+        , '; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.'
         , "; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it."
         , "; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically."
     ]
@@ -993,7 +1032,8 @@ ApplyConfigCompatibilityMigrations(configText) {
     )
     configText := UpsertConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys), "StealMouseInput")
     configText := UpsertConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey), "ShowButtonKeys")
-    configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ToggleHotkey")
+    configText := UpsertConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride), "ToggleHotkey")
+    configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ButtonGapOverride")
     configText := UpsertConfigAssignment(configText, "CenterLogoFile", SerializeAhkString("images\StarHUD-center-logo-200x200.png"), "ShowOuterBorder")
     configText := ReplaceOrInsertCommentBlock(
         configText,
@@ -1050,7 +1090,7 @@ SerializeSizeConfigValue(sizeValue) {
 }
 
 WriteConfigStateToFile(createBackup := false, filePath := "") {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     if filePath = ""
         filePath := GetConfigFilePath()
@@ -1068,6 +1108,7 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     configText := ReplaceConfigAssignment(configText, "StealMouseInput", BoolToAhk(StealMouseInput))
     configText := ReplaceConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys))
     configText := ReplaceConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey))
+    configText := ReplaceConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride))
     configText := ReplaceConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder))
     configText := ReplaceManagedLayoutBlock(configText)
 
@@ -1169,12 +1210,73 @@ CreateSolidLayer(gui, x, y, w, h, color, radius := 0, createdControls := 0) {
     if w <= 0 || h <= 0
         return
 
-    ctrl := gui.Add("Text", "x" x " y" y " w" w " h" h " Background" color, "")
+    ctrl := gui.Add("Picture", "x" x " y" y " w" w " h" h " +0xE", "")
     if IsObject(createdControls)
         createdControls.Push(ctrl)
+    hBitmap := CreateSolidBitmap(w, h, color, radius)
+    if hBitmap
+        SetManagedPictureBitmap(gui.Hwnd, ctrl, hBitmap)
     if radius > 0
         ApplyRoundedRegion(ctrl.Hwnd, w, h, radius)
     return ctrl
+}
+
+CreateSolidBitmap(targetW, targetH, color, radius := 0) {
+    if targetW <= 0 || targetH <= 0
+        return 0
+
+    pCanvasBitmap := 0
+    pGraphics := 0
+    brush := 0
+    hBitmap := 0
+
+    try
+    {
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", targetW, "Int", targetH, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &pCanvasBitmap := 0)
+            return 0
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", pCanvasBitmap, "Ptr*", &pGraphics := 0)
+            return 0
+        DllCall("gdiplus\GdipSetSmoothingMode", "Ptr", pGraphics, "Int", 4)
+        DllCall("gdiplus\GdipGraphicsClear", "Ptr", pGraphics, "UInt", 0x00000000)
+        if DllCall("gdiplus\GdipCreateSolidFill", "UInt", ("0xFF" NormalizeColorInput(color, "000000")) + 0, "Ptr*", &brush := 0)
+            return 0
+
+        radius := Max(0, Min(radius, Floor(Min(targetW, targetH) / 2)))
+        if radius <= 0
+        {
+            DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", 0, "Int", targetW, "Int", targetH)
+        }
+        else
+        {
+            diameter := radius * 2
+            innerW := Max(0, targetW - diameter)
+            innerH := Max(0, targetH - diameter)
+
+            if innerW > 0
+                DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", radius, "Int", 0, "Int", innerW, "Int", targetH)
+            if innerH > 0
+                DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", radius, "Int", targetW, "Int", innerH)
+
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", 0, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", targetW - diameter, "Int", 0, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", targetH - diameter, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", targetW - diameter, "Int", targetH - diameter, "Int", diameter, "Int", diameter)
+        }
+
+        if DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", pCanvasBitmap, "Ptr*", &hBitmap := 0, "UInt", 0x00000000)
+            hBitmap := 0
+    }
+    finally
+    {
+        if brush
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+        if pGraphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", pGraphics)
+        if pCanvasBitmap
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", pCanvasBitmap)
+    }
+
+    return hBitmap
 }
 
 CreateFittedImageBitmap(imagePath, fitMode, targetW, targetH, backgroundColor := "000000") {
@@ -1582,7 +1684,7 @@ Clamp(value, minValue, maxValue) {
     return Max(minValue, Min(value, maxValue))
 }
 
-RebuildPageGuis(preserveVisible := true) {
+RebuildPageGuis(preserveVisible := true, activateWindow := true) {
     global ButtonPages, CurrentPageIndex, PageGuis, PanelVisible
 
     shouldRestoreVisible := preserveVisible && PanelVisible && PageGuis.Length >= CurrentPageIndex
@@ -1600,7 +1702,7 @@ RebuildPageGuis(preserveVisible := true) {
         PageGuis.Push(CreatePageGui(layout))
 
     if shouldRestoreVisible
-        ShowCurrentPage(panelX, panelY)
+        ShowCurrentPage(panelX, panelY, activateWindow)
     else
         PanelVisible := false
 }
@@ -1645,7 +1747,9 @@ HandleEditModeClick(pageIndex, rowIndex, colIndex) {
         if EditSwapSelection.pageIndex = pageIndex && EditSwapSelection.row = rowIndex && EditSwapSelection.col = colIndex
         {
             EditSwapSelection := 0
-            RebuildPageGuis(PanelVisible)
+            RebuildPageGuis(PanelVisible, false)
+            if IsObject(ConfigDialogState)
+                WinActivate("ahk_id " ConfigDialogState.gui.Hwnd)
         }
         else
         {
@@ -2286,7 +2390,7 @@ OpenImagesFolder(*) {
 }
 
 CaptureConfigDialogPreviewState() {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     return {
         size: Size,
@@ -2296,6 +2400,7 @@ CaptureConfigDialogPreviewState() {
         fillColor: FillColor,
         openPositionMode: OpenPositionMode,
         toggleHotkey: ToggleHotkey,
+        buttonGapOverride: ButtonGapOverride,
         stealMouseInput: StealMouseInput,
         showButtonKeys: ShowButtonKeys,
         showOuterBorder: ShowOuterBorder
@@ -2303,7 +2408,7 @@ CaptureConfigDialogPreviewState() {
 }
 
 ApplyConfigDialogPreviewState(state) {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     oldFrameColor := FrameColor
     oldFillColor := FillColor
@@ -2316,6 +2421,7 @@ ApplyConfigDialogPreviewState(state) {
     FillColor := state.fillColor
     OpenPositionMode := state.openPositionMode
     ToggleHotkey := state.toggleHotkey
+    ButtonGapOverride := state.buttonGapOverride
     StealMouseInput := state.stealMouseInput
     ShowButtonKeys := state.showButtonKeys
     ShowOuterBorder := state.showOuterBorder
@@ -2343,6 +2449,14 @@ BuildConfigDialogPreviewState(strict := true) {
     }
 
     try newToggleHotkey := NormalizeToggleHotkeyInput(ConfigDialogState.toggleHotkeyEdit.Value)
+    catch as err
+    {
+        if strict
+            throw err
+        return 0
+    }
+
+    try newButtonGapOverride := NormalizeButtonGapOverride(ConfigDialogState.buttonGapOverrideEdit.Value, strict)
     catch as err
     {
         if strict
@@ -2390,21 +2504,37 @@ BuildConfigDialogPreviewState(strict := true) {
         fillColor: newFillColor,
         openPositionMode: ConfigDialogState.openPositionList.Text,
         toggleHotkey: newToggleHotkey,
+        buttonGapOverride: newButtonGapOverride,
         stealMouseInput: ConfigDialogState.stealMouseInputCheck.Value = 1,
         showButtonKeys: ConfigDialogState.showButtonKeysCheck.Value = 1,
         showOuterBorder: ConfigDialogState.showOuterBorderCheck.Value = 1
     }
 }
 
+UpdateConfigDialogGapHelper() {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    overrideValue := NormalizeButtonGapOverride(ConfigDialogState.buttonGapOverrideEdit.Value, false)
+    effectiveGap := GetEffectiveButtonGap(NormalizeSizeKey(ConfigDialogState.sizeList.Text))
+    if overrideValue = ""
+        ConfigDialogState.buttonGapHelperText.Text := "Blank uses the size profile gap. Current effective gap: " effectiveGap
+    else
+        ConfigDialogState.buttonGapHelperText.Text := "Override active. Current effective gap: " overrideValue
+}
+
 UpdateConfigDialogPreview(*) {
     previewState := BuildConfigDialogPreviewState(false)
     if !IsObject(previewState)
         return
+    UpdateConfigDialogGapHelper()
     ApplyConfigDialogPreviewState(previewState)
 }
 
 OpenConfigEditor() {
-    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ActiveConfigFileName, ButtonGapOverride, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     configFileNames := GetAvailableConfigFiles()
     configDisplayNames := GetConfigDisplayNames(configFileNames)
@@ -2429,6 +2559,10 @@ OpenConfigEditor() {
     sizeList := configGui.Add("DropDownList", "xm w140", sizeOptions)
     ChooseDropDownValue(sizeList, Size, sizeOptions)
     configGui.Add("Text", "xm y+2 c808080", "Pick the built-in scale profile that best matches your screen.")
+
+    configGui.Add("Text", "xm y+8", "Button gap override")
+    buttonGapOverrideEdit := configGui.Add("Edit", "xm w140", ButtonGapOverride)
+    buttonGapHelperText := configGui.Add("Text", "xm y+2 c808080", "")
 
     configGui.Add("Text", "xm y+8", "Corner radius")
     cornerRadiusEdit := configGui.Add("Edit", "xm w140", CornerRadius)
@@ -2486,6 +2620,8 @@ OpenConfigEditor() {
         suppressConfigSwitch: false,
         pageInfoText: pageInfoText,
         sizeList: sizeList,
+        buttonGapOverrideEdit: buttonGapOverrideEdit,
+        buttonGapHelperText: buttonGapHelperText,
         cornerRadiusEdit: cornerRadiusEdit,
         maskColorEdit: maskColorEdit,
         frameColorEdit: frameColorEdit,
@@ -2499,6 +2635,7 @@ OpenConfigEditor() {
     }
 
     sizeList.OnEvent("Change", UpdateConfigDialogPreview)
+    buttonGapOverrideEdit.OnEvent("Change", UpdateConfigDialogPreview)
     cornerRadiusEdit.OnEvent("Change", UpdateConfigDialogPreview)
     maskColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
     frameColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
@@ -2521,6 +2658,7 @@ OpenConfigEditor() {
     configGui.OnEvent("Close", CloseConfigEditor)
     configGui.OnEvent("Escape", CloseConfigEditor)
     UpdateConfigDialogPageInfo()
+    UpdateConfigDialogGapHelper()
     configGui.Show("AutoSize")
 }
 
@@ -2861,19 +2999,19 @@ HideAllPages() {
         pageGui.Hide()
 }
 
-ShowCurrentPage(panelX, panelY) {
+ShowCurrentPage(panelX, panelY, activateWindow := true) {
     global CurrentPageIndex, EditMode, GuiH, GuiW, PageGuis, PanelVisible, StealMouseInput
 
     HideAllPages()
     pageGui := PageGuis[CurrentPageIndex]
     showOptions := "x" panelX " y" panelY " w" GuiW " h" GuiH
-    if !StealMouseInput && !EditMode
+    if !activateWindow || (!StealMouseInput && !EditMode)
         showOptions := "NA " showOptions
 
     pageGui.Show(showOptions)
     WinSetAlwaysOnTop 1, "ahk_id " pageGui.Hwnd
     WinMoveTop "ahk_id " pageGui.Hwnd
-    if StealMouseInput || EditMode
+    if activateWindow && (StealMouseInput || EditMode)
         WinActivate("ahk_id " pageGui.Hwnd)
     PanelVisible := true
 }

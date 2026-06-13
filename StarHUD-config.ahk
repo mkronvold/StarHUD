@@ -32,15 +32,16 @@ if !SizeProfiles.Has(Size)
     throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
 
 ApplySizeProfile(SizeProfiles[Size])
-CornerRadius := 0
+CornerRadius := 122
 MaskColor := "010101"
 FrameColor := "4A4A4A"
 FillColor := "000000"
 ; OpenPositionMode: "auto-split", "mouse", "always-left", or "always-right"
-OpenPositionMode := "mouse"
+OpenPositionMode := "always-right"
 StealMouseInput := true
 ShowButtonKeys := true
 ToggleHotkey := "F20"
+ButtonGapOverride := 0
 ShowOuterBorder := true
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
@@ -54,12 +55,15 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; Set OpenPositionMode to "auto-split", "mouse", "always-left", or "always-right".
 ; Set StealMouseInput to true to activate the HUD while it is shown so clicks/mouse movement do not reach the app underneath.
 ; Set StealMouseInput to false to keep the previous non-activating overlay behavior.
+
 ; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them.
 ; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
+; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.
 ; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
 ; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
+
 ; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
 ; In edit mode, plain-click the center button to open the config dialog.
 ; In edit mode, RAlt+click the center button to go to the next page.
@@ -75,15 +79,15 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 Page1Layout := [
     [ButtonCfg(), ButtonCfg("FLIGHT READY", SendKey("r"), "00FF66", "00FF66", true, "", "4A4A4A", "000000", "double"), ButtonCfg("PWR -OFF-", DoubleTapKey("u", 60), "FF2A2A", "FFF200", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENG -OFF-", DoubleTapKey("i", 60), "FF9900", "FFF200", true, "", "4A4A4A", "000000", "double"), ButtonCfg()],
     [ButtonCfg("DOORS -OPEN-", SendKey("ScrollLock"), "00D97E", "00BFFF", true, "", "4A4A4A", "000000", "double"), ButtonCfg("VTOL", SendKey("k"), "19D75D", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("GEAR", SendKey("n"), "19D75D", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("CPLD", SendKey("c"), "19D75D", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("ATC", ChordKey("LAlt", "n", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single")],
-    [ButtonCfg("DOORS -CLOSE-", DoubleTapKey("ScrollLock", 60), "00D97E", "00BFFF", true, "", "4A4A4A", "000000", "double"), ButtonCfg("SCAN", SendKey("v"), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), CenterButtonCfg, ButtonCfg("NAV", SendKey("b"), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DEPLOY", ChordKey("LAlt", "k", 30), "FFF000", "FF88FF", true, "", "4A4A4A", "000000", "single")],
-    [ButtonCfg(), ButtonCfg("LIGHTS", SendKey("l"), "1C2BFF", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("TOOL MODE", SendKey("m"), "19D75D", "7E8200", true, "", "4A4A4A", "000000", "double"), ButtonCfg("QT", HoldKey("b", 1000), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DOCK", ChordKey("RAlt", "n", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single")],
+    [ButtonCfg("DOORS -CLOSE-", DoubleTapKey("ScrollLock", 60), "00D97E", "00BFFF", true, "", "4A4A4A", "000000", "double"), ButtonCfg("SCAN", SendKey("v"), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg("NAV", SendKey("b"), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DEPLOY", ChordKey("LAlt", "k", 30), "FFF000", "FF88FF", true, "", "4A4A4A", "000000", "single")],
+    [ButtonCfg("MUTE`nSPEAKERS", SendKey("F19"), "8000FF", "8000FF", false, "", "4A4A4A", "000000", "double"), ButtonCfg("LIGHTS", SendKey("l"), "1C2BFF", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("TOOL MODE", SendKey("m"), "19D75D", "7E8200", true, "", "4A4A4A", "000000", "double"), ButtonCfg("QT", HoldKey("b", 1000), "1C2BFF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DOCK", ChordKey("RAlt", "n", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single")],
     [ButtonCfg(), ButtonCfg("NIGHT VISION", ChordKey("RAlt", "l", 30), "1C2BFF", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ACCEPT", SendKey("["), "FFF000", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg("REJECT", SendKey("]"), "FF2A2A", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg()]
 ]
 
 Page2Layout := [
     [ButtonCfg(), ButtonCfg("EJECT", ChordKey("RAlt", "y", 30), "FF2A2A", "FFFFFF", true, "", "4A4A4A", "000000", "single"), ButtonCfg("CPLD", SendKey("c"), "19D75D", "00FF88", true, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("MISSILES +", ChordKey("LAlt", "g", 30), "FF9900", "1C2BFF", true, "", "4A4A4A", "000000", "double"), ButtonCfg("RESET MISSILES", ChordKey("RAlt", "g", 30), "FF9900", "FFF200", true, "", "4A4A4A", "000000", "double"), ButtonCfg("MISSILE CAM", SendKey("Home"), "19D75D", "FFF200", true, "", "4A4A4A", "000000", "double"), ButtonCfg("BURST +", ChordKey("LAlt", "h", 30), "19D75D", "00FF88", false, "", "4A4A4A", "000000", "double")],
-    [ButtonCfg("CLEAR TARGET", ChordKey("LAlt", "t", 30), "FF9900", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("TARGET", SendKey("t"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single"), CenterButtonCfg, ButtonCfg("NOISE", SendKey("j"), "FFF000", "FF6600", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DECOY", SendKey("h"), "FFF000", "FF6600", false, "", "4A4A4A", "000000", "single")],
+    [ButtonCfg("CLEAR TARGET", ChordKey("LAlt", "t", 30), "FF9900", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("TARGET", SendKey("t"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg("NOISE", SendKey("j"), "FFF000", "FF6600", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DECOY", SendKey("h"), "FFF000", "FF6600", false, "", "4A4A4A", "000000", "single")],
     [ButtonCfg("UNPIN ALL", SendKey("0"), "FFF000", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("1 LOCK", SendKey("1"), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("2 LOCK", SendKey("2"), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("3 LOCK", SendKey("3"), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("BURST -", ChordKey("RAlt", "h", 30), "19D75D", "00FF88", false, "", "4A4A4A", "000000", "double")],
     [ButtonCfg(), ButtonCfg("1 PIN", ChordKey("LAlt", "1", 30), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("2 PIN", ChordKey("LAlt", "2", 30), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("3 PIN", ChordKey("LAlt", "3", 30), "FFF000", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()]
 ]
@@ -91,7 +95,7 @@ Page2Layout := [
 Page3Layout := [
     [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("UNLOCK PORTS", ChordKey("RAlt", "k", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg("UNLOCK DOORS", ChordKey("RAlt", "u", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("LOCK PORTS", ChordKey("RAlt", "o", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), CenterButtonCfg, ButtonCfg("LOCK DOORS", ChordKey("RAlt", "l", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("LOCK PORTS", ChordKey("RAlt", "o", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg("LOCK DOORS", ChordKey("RAlt", "l", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("VJOY MODE", SendKey(Chr(92)), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("STAGGER MODE", SendKey("."), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("GIMBLE MODE", SendKey("g"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
     [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()]
 ]

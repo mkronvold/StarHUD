@@ -32,7 +32,7 @@ if !SizeProfiles.Has(Size)
     throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
 
 ApplySizeProfile(SizeProfiles[Size])
-CornerRadius := 10
+CornerRadius := 0
 MaskColor := "010101"
 FrameColor := "4A4A4A"
 FillColor := "000000"
@@ -41,6 +41,7 @@ OpenPositionMode := "always-right"
 StealMouseInput := true
 ShowButtonKeys := true
 ToggleHotkey := "F20"
+ButtonGapOverride := ""
 ShowOuterBorder := false
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
@@ -57,6 +58,7 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 
 ; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them.
 ; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
+; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.
 ; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
 ; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
