@@ -15,6 +15,8 @@
 
 The installer auto-detects your Documents folder (including OneDrive-redirected Documents).
 
+Once installed, continue to [First launch](#first-launch) to set your toggle key.
+
 ### Option B: Download the ZIP from GitHub
 
 1. Go to <https://github.com/mkronvold/StarHUD>.
@@ -24,6 +26,8 @@ The installer auto-detects your Documents folder (including OneDrive-redirected 
    ```
    %USERPROFILE%\Documents\AutoHotkey\StarHUD\
    ```
+
+Once extracted, continue to [First launch](#first-launch) to set your toggle key.
 
 ### Option C: Clone with Git / GitHub CLI
 
@@ -52,6 +56,8 @@ To update later, pull the latest changes:
 cd "%USERPROFILE%\Documents\AutoHotkey\StarHUD"
 git pull
 ```
+
+Once cloned, continue to [First launch](#first-launch) to set your toggle key.
 
 ## Files and folder layout
 
