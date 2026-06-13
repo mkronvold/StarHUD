@@ -119,7 +119,7 @@ See the full [AutoHotkey key list](https://www.autohotkey.com/docs/v2/KeyList.ht
 
 If you want a mouse button to open the HUD, map that button to your chosen key in your mouse software (e.g. Logitech G HUB, Razer Synapse).
 
-You can also change the toggle key later from the in-app config dialog without editing the file.
+You can also change the toggle key later from the in-app config dialog without editing the file, or re-run the installer to update it across all config files at once.
 
 ## Create your own config
 
