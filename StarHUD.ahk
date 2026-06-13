@@ -411,7 +411,9 @@ PageCycleAction() {
     return MakeAction([], "", true, "PageCycle")
 }
 
-#Include StarHUD-active-config.ahk
+ActiveConfigFileName := "StarHUD-config.ahk"
+#Include StarHUD-config.ahk
+#Include *i StarHUD-user-config.ahk
 
 if !IsSet(ToggleHotkey)
     ToggleHotkey := "F20"
@@ -431,8 +433,9 @@ if !IsSet(PageNames) || !IsObject(PageNames) || PageNames.Length != ButtonPages.
 
 ApplyCurrentSizeProfile()
 
-ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
-ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
+ConfigLoaderPath := A_ScriptDir "\StarHUD-user-config.ahk"
+ConfigFilePath := GetConfigFilePath()
+EnsureUserConfigLoader()
 ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
 ManagedLayoutEndMarker := "; === MANAGED BUTTON LAYOUT END ==="
 LastActiveHwnd := 0
@@ -908,8 +911,6 @@ GetAvailableConfigFiles() {
 
     Loop Files, A_ScriptDir "\StarHUD-config*.ahk"
     {
-        if A_LoopFileName = "StarHUD-active-config.ahk"
-            continue
         if A_LoopFileName = "StarHUD-config.ahk"
             defaultFileName := A_LoopFileName
         else
@@ -964,14 +965,31 @@ PromptForConfigFileName(actionLabel) {
     return NormalizeConfigFileNameInput(result.Value)
 }
 
-WriteActiveConfigLoader(fileName) {
+EnsureUserConfigLoader() {
+    global ActiveConfigFileName, ConfigFilePath, ConfigLoaderPath
+
+    defaultFileName := "StarHUD-config.ahk"
+    if !FileExist(ConfigLoaderPath)
+    {
+        WriteUserConfigLoader(defaultFileName)
+        return
+    }
+    if !FileExist(GetConfigFilePath())
+    {
+        WriteUserConfigLoader(defaultFileName)
+        ActiveConfigFileName := defaultFileName
+        ConfigFilePath := GetConfigFilePath(defaultFileName)
+    }
+}
+
+WriteUserConfigLoader(fileName) {
     global ActiveConfigFileName, ConfigFilePath, ConfigLoaderPath
 
     loaderLines := [
-        "; Auto-generated active StarHUD config selector."
-        , "; Use the StarHUD config dialog to switch between config files."
+        "; Auto-generated StarHUD user config selector."
+        , "; StarHUD updates this user-local file when you switch config profiles."
         , "ActiveConfigFileName := " SerializeAhkString(fileName)
-        , "#Include " fileName
+        , "#Include *i " fileName
     ]
     loaderFile := FileOpen(ConfigLoaderPath, "w", "UTF-8")
     if !IsObject(loaderFile)
@@ -1040,7 +1058,7 @@ SwitchToConfigFile(targetFileName) {
         return
     if !FileExist(GetConfigFilePath(targetFileName))
         throw Error("Config file not found: " targetFileName)
-    WriteActiveConfigLoader(targetFileName)
+    WriteUserConfigLoader(targetFileName)
     Reload()
 }
 

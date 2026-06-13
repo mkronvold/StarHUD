@@ -50,7 +50,7 @@ Buttons can be edited in place for title, colors, line mode, and action behavior
 ## Files
 
 - `StarHUD.ahk` - main runtime script
-- `StarHUD-active-config.ahk` - selects which config profile StarHUD loads
+- `StarHUD-user-config.ahk` - optional auto-generated user-local selector that remembers which config profile StarHUD loads
 - `StarHUD-config.ahk` and `StarHUD-config-*.ahk` - user-editable settings, pages, and button definitions
 - `images\` - folder for per-button images used by the button editor
 - `images\StarHUD-center-logo-200x200.png` - default center button image
@@ -86,4 +86,4 @@ Most customization happens in the active `StarHUD-config*.ahk` file.
 - Change `ToggleHotkey` if you want a different key than `F20` to open the HUD.
 - Edit the managed page layout block to define buttons, colors, and actions.
 
-The script also supports editing the layout live from the HUD. Swaps, button edits, page changes, and config-profile changes are written back to the active `StarHUD-config*.ahk` file.
+The script also supports editing the layout live from the HUD. Swaps, button edits, page changes, and config-profile changes are written back to the active `StarHUD-config*.ahk` file. StarHUD also keeps the selected profile in `StarHUD-user-config.ahk`, which it creates automatically when needed.

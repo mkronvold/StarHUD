@@ -9,14 +9,13 @@ Put all of the project files in one folder on your Windows machine, for example:
 Keep these files together in that same folder:
 
 - `StarHUD.ahk`
-- `StarHUD-active-config.ahk`
 - `StarHUD-config.ahk`
 - `images\`
 - `images\StarHUD-center-logo-200x200.png`
 - `images\StarHUD-center-logo-100x100.png`
 - `StarHUD-center-logo.ico`
 
-`StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder through `StarHUD-active-config.ahk`. Center-logo paths are resolved from that folder, and per-button images are resolved from the `images\` subfolder.
+`StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder. If `StarHUD-user-config.ahk` is present, it uses that user-local selector file to remember the selected profile. If the file is missing, StarHUD starts with `StarHUD-config.ahk` and creates `StarHUD-user-config.ahk` automatically. Center-logo paths are resolved from that folder, and per-button images are resolved from the `images\` subfolder.
 
 ## Install AutoHotkey
 
