@@ -32,13 +32,15 @@ if !SizeProfiles.Has(Size)
     throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
 
 ApplySizeProfile(SizeProfiles[Size])
-CornerRadius := 0
+CornerRadius := 14
 MaskColor := "010101"
 FrameColor := "4A4A4A"
 FillColor := "000000"
 ; OpenPositionMode: "auto-split", "mouse", "always-left", or "always-right"
 OpenPositionMode := "always-right"
 StealMouseInput := true
+ShowButtonKeys := true
+ToggleHotkey := "F20"
 ButtonGapOverride := ""
 ShowOuterBorder := true
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
@@ -53,11 +55,15 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; Set OpenPositionMode to "auto-split", "mouse", "always-left", or "always-right".
 ; Set StealMouseInput to true to activate the HUD while it is shown so clicks/mouse movement do not reach the app underneath.
 ; Set StealMouseInput to false to keep the previous non-activating overlay behavior.
+
+; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them.
+; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
 ; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.
 ; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
 ; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
+
 ; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
 ; In edit mode, plain-click the center button to open the config dialog.
 ; In edit mode, RAlt+click the center button to go to the next page.
@@ -73,7 +79,7 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 Page1Layout := [
     [ButtonCfg(), ButtonCfg("POWER`n-ON-", SendKey("u"), "FF0000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("POWER`n-OFF-", DoubleTapKey("u", 15), "FF0000", "FFFF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("ENGINE`n-ON-", SendKey("i"), "FF8000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENGINE`n-OFF-", DoubleTapKey("i", 15), "FF8000", "FF8000", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), CenterButtonCfg, ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("SHIELD`n-ON-", SendKey("o"), "8080FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("SHIELD`n-OFF-", DoubleTapKey("o", 60), "8080FF", "8080FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("WEAPON`n-ON-", SendKey("p"), "FF00FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("WEAPON`n-OFF-", DoubleTapKey("p", 60), "FF00FF", "FF00FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()]
 ]
