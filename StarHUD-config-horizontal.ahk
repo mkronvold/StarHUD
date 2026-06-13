@@ -43,6 +43,8 @@ ShowButtonKeys := true
 ToggleHotkey := "F20"
 ButtonGapOverride := ""
 ShowOuterBorder := false
+ShowPageNames := false
+PageNamePosition := "top"
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
 CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", CenterLogoPath, "", FillColor)
@@ -110,4 +112,5 @@ Page4Layout := [
 ]
 
 ButtonPages := [Page1Layout, Page2Layout, Page3Layout, Page4Layout]
+PageNames := ["Combat", "Flight", "Systems", "Comms"]
 ; === MANAGED BUTTON LAYOUT END ===

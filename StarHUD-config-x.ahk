@@ -73,11 +73,11 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; titleLineMode is stored as "single" or "double" in each ButtonCfg(...) entry.
 ; === MANAGED BUTTON LAYOUT BEGIN ===
 Page1Layout := [
-    [ButtonCfg(), ButtonCfg("POWER`n-ON-", SendKey("u"), "FF0000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("POWER`n-OFF-", DoubleTapKey("u", 15), "FF0000", "FFFF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("ENGINE`n-ON-", SendKey("i"), "FF8000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENGINE`n-OFF-", DoubleTapKey("i", 15), "FF8000", "FF8000", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), CenterButtonCfg, ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("SHIELD`n-ON-", SendKey("o"), "8080FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("SHIELD`n-OFF-", DoubleTapKey("o", 60), "8080FF", "8080FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("WEAPON`n-ON-", SendKey("p"), "FF00FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("WEAPON`n-OFF-", DoubleTapKey("p", 60), "FF00FF", "FF00FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()]
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("UNLOCK PORTS", ChordKey("RAlt", "k", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg("UNLOCK DOORS", ChordKey("RAlt", "u", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("LOCK PORTS", ChordKey("RAlt", "o", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), CenterButtonCfg, ButtonCfg("LOCK DOORS", ChordKey("RAlt", "l", 30), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("VJOY MODE", SendKey(Chr(92)), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("STAGGER MODE", SendKey("."), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg("GIMBLE MODE", SendKey("g"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()]
 ]
 
 ButtonPages := [Page1Layout]
