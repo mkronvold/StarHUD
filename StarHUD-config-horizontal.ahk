@@ -2,6 +2,13 @@
 ; Edit this file to change settings, sizes, pages, labels, colors, and bindings.
 ; The main logic stays in StarHUD.ahk.
 
+; === TOGGLE KEY ===
+; This is the key that shows/hides the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
+; Use any bare AHK key name: F13–F24, ScrollLock, CapsLock, PrintScreen, Pause, etc.
+; See https://www.autohotkey.com/docs/v2/KeyList.htm for a full list of valid key names.
+; Examples: "F20", "F13", "ScrollLock", "Pause"
+ToggleHotkey := "F20"
+
 ; === SETTINGS ===
 ; Set Size to one of the built-in profiles below:
 ;   1 = 1080 height
@@ -40,7 +47,6 @@ FillColor := "000000"
 OpenPositionMode := "always-right"
 StealMouseInput := true
 ShowButtonKeys := true
-ToggleHotkey := "F20"
 ButtonGapOverride := ""
 ShowOuterBorder := false
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"

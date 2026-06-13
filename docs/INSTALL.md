@@ -68,17 +68,33 @@ Keep these files together in the same folder:
 
 ## First launch
 
-1. Open `StarHUD-config.ahk`.
-2. Set your preferred `Size`, `OpenPositionMode`, `ToggleHotkey`, colors, and button bindings.
+The only setting you need to configure before running StarHUD is the toggle key. Everything else can be changed from the in-app config dialog.
+
+1. Open any `StarHUD-config*.ahk` file in a text editor.
+2. Find the `ToggleHotkey` line near the top and set it to your preferred key:
+
+   ```ahk
+   ToggleHotkey := "F20"
+   ```
+
 3. Double-click `StarHUD.ahk` to start the HUD.
+4. Press the toggle key to show/hide the HUD. Press **RAlt + toggle key** to enter edit mode.
 
-You can add more config profiles later from the in-app config dialog without moving files into a separate folder. The config dialog can also open the `images\` folder for you, and StarHUD creates it automatically if it does not exist yet.
+### Choosing a toggle key
 
-## Optional: map the toggle key to a mouse button
+Use any bare [AutoHotkey key name](https://www.autohotkey.com/docs/v2/KeyList.htm). Good choices are keys you don't normally use:
 
-StarHUD uses the configured `ToggleHotkey` to show and hide the HUD. The default is `F20`. If your keyboard does not have that key, you can either change `ToggleHotkey` in the config or map one of your mouse buttons to the same keystroke in your mouse software.
+| Key | Description |
+| --- | --- |
+| `F13`–`F24` | Extended function keys (many mice/keyboards can send these) |
+| `ScrollLock` | Rarely used on modern systems |
+| `Pause` | Pause/Break key |
+| `PrintScreen` | If you don't use it for screenshots |
+| `CapsLock` | If you've remapped it elsewhere |
 
-For example, in **Logitech G HUB**, you can assign a mouse button to your chosen toggle keystroke so the HUD opens directly from the mouse.
+The value must be a single key name — not a combination. If you want a mouse button to open the HUD, map that button to the chosen key in your mouse software (e.g. Logitech G HUB, Razer Synapse).
+
+You can also change the toggle key later from the in-app config dialog without editing the file.
 
 ## Create a desktop shortcut
 
