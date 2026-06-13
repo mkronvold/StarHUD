@@ -48,6 +48,10 @@ Name: "{userdesktop}\StarHUD"; Filename: "{app}\StarHUD.ahk"; IconFilename: "{ap
 Filename: "{app}\StarHUD.ahk"; Description: "Launch StarHUD now"; Flags: nowait postinstall skipifsilent shellexec
 
 [Code]
+const
+  AHK_DOWNLOAD_URL = 'https://github.com/AutoHotkey/AutoHotkey/releases/latest/download/AutoHotkey_2.0_setup.exe';
+  AHK_INSTALLER_NAME = 'AutoHotkey_2.0_setup.exe';
+
 // Check if AutoHotkey v2 is installed by looking for the exe
 function IsAutoHotkeyInstalled(): Boolean;
 var
@@ -67,17 +71,70 @@ begin
   end;
 end;
 
+function DownloadAndInstallAutoHotkey(): Boolean;
+var
+  TempFile: String;
+  ResultCode: Integer;
+  DownloadCmd: String;
+begin
+  Result := False;
+  TempFile := ExpandConstant('{tmp}\') + AHK_INSTALLER_NAME;
+
+  // Download AutoHotkey installer using PowerShell
+  DownloadCmd := Format('-NoProfile -Command "Invoke-WebRequest -Uri ''%s'' -OutFile ''%s''"',
+                        [AHK_DOWNLOAD_URL, TempFile]);
+  if not Exec('powershell.exe', DownloadCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    MsgBox('Failed to download AutoHotkey v2. Please install it manually from https://www.autohotkey.com/',
+           mbError, MB_OK);
+    Exit;
+  end;
+
+  if not FileExists(TempFile) then
+  begin
+    MsgBox('Download failed. Please install AutoHotkey v2 manually from https://www.autohotkey.com/',
+           mbError, MB_OK);
+    Exit;
+  end;
+
+  // Run AutoHotkey installer silently
+  if Exec(TempFile, '/silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if ResultCode = 0 then
+      Result := True
+    else
+      MsgBox('AutoHotkey installer exited with code ' + IntToStr(ResultCode) + '.' + #13#10 +
+             'Please install AutoHotkey v2 manually from https://www.autohotkey.com/',
+             mbError, MB_OK);
+  end
+  else
+    MsgBox('Failed to run the AutoHotkey installer. Please install it manually from https://www.autohotkey.com/',
+           mbError, MB_OK);
+
+  DeleteFile(TempFile);
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
   if not IsAutoHotkeyInstalled() then
   begin
-    if MsgBox('AutoHotkey v2 does not appear to be installed.' + #13#10 + #13#10 +
-              'StarHUD requires AutoHotkey v2 to run. Would you like to continue anyway?' + #13#10 +
-              '(You can install AutoHotkey v2 from https://www.autohotkey.com/)',
-              mbConfirmation, MB_YESNO) = IDNO then
-    begin
-      Result := False;
+    case MsgBox('AutoHotkey v2 is required but does not appear to be installed.' + #13#10 + #13#10 +
+                'Would you like the installer to download and install it for you?',
+                mbConfirmation, MB_YESNOCANCEL) of
+      IDYES:
+        begin
+          if not DownloadAndInstallAutoHotkey() then
+          begin
+            if MsgBox('AutoHotkey v2 installation failed. Continue with StarHUD setup anyway?',
+                      mbConfirmation, MB_YESNO) = IDNO then
+              Result := False;
+          end;
+        end;
+      IDNO:
+        ; User chose to skip - continue without AHK
+      IDCANCEL:
+        Result := False;
     end;
   end;
 end;
