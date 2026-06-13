@@ -306,6 +306,39 @@ ApplySizeProfile(profile) {
     InnerBorderInset := profile.innerBorderInset
 }
 
+NormalizeButtonGapOverride(value, strict := true) {
+    textValue := Trim(Format("{}", value))
+    if textValue = ""
+        return ""
+    if !RegExMatch(textValue, "^\d+$")
+    {
+        if strict
+            throw Error("Button gap override must be a whole number.")
+        return ""
+    }
+    return textValue + 0
+}
+
+SerializeButtonGapOverrideValue(value) {
+    normalizedValue := NormalizeButtonGapOverride(value)
+    if normalizedValue = ""
+        return '""'
+    return normalizedValue + 0
+}
+
+GetEffectiveButtonGap(sizeKey := "") {
+    global BtnGap, ButtonGapOverride, Size, SizeProfiles
+
+    normalizedOverride := NormalizeButtonGapOverride(ButtonGapOverride, false)
+    if normalizedOverride != ""
+        return normalizedOverride
+    if sizeKey = ""
+        sizeKey := NormalizeSizeKey(Size)
+    if SizeProfiles.Has(sizeKey)
+        return SizeProfiles[sizeKey].btnGap
+    return BtnGap
+}
+
 NormalizeSizeKey(sizeKey) {
     return StrLower(Format("{}", sizeKey))
 }
@@ -344,25 +377,24 @@ PageCycleAction() {
 
 if !IsSet(ToggleHotkey)
     ToggleHotkey := "F20"
+if !IsSet(ButtonGapOverride)
+    ButtonGapOverride := ""
 if !IsSet(ShowButtonKeys)
     ShowButtonKeys := true
 if !IsSet(ShowOuterBorder)
     ShowOuterBorder := true
 
+ApplyCurrentSizeProfile()
+
 ConfigLoaderPath := A_ScriptDir "\StarHUD-active-config.ahk"
 ConfigFilePath := A_ScriptDir "\" ActiveConfigFileName
 ManagedLayoutStartMarker := "; === MANAGED BUTTON LAYOUT BEGIN ==="
 ManagedLayoutEndMarker := "; === MANAGED BUTTON LAYOUT END ==="
-GridRows := ButtonPages[1].Length
-GridCols := ButtonPages[1][1].Length
-GuiW := GridMargin * 2 + GridCols * BtnSize + (GridCols - 1) * BtnGap
-GuiH := GridMargin * 2 + GridRows * BtnSize + (GridRows - 1) * BtnGap
 LastActiveHwnd := 0
 PanelVisible := false
 CurrentPageIndex := 1
-CenterClientX := GridMargin + Floor(GridCols / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
-CenterClientY := GridMargin + Floor(GridRows / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
 PageGuis := []
+RebuildingPageGuis := false
 EditMode := false
 EditSwapSelection := 0
 EditDialogState := 0
@@ -485,12 +517,15 @@ RefreshLayoutMetrics() {
 }
 
 ApplyCurrentSizeProfile() {
-    global Size, SizeProfiles
+    global BtnGap, ButtonGapOverride, Size, SizeProfiles
 
     Size := NormalizeSizeKey(Size)
     if !SizeProfiles.Has(Size)
         throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
     ApplySizeProfile(SizeProfiles[Size])
+    overrideGap := NormalizeButtonGapOverride(ButtonGapOverride, false)
+    if overrideGap != ""
+        BtnGap := overrideGap
     RefreshLayoutMetrics()
 }
 
@@ -986,11 +1021,12 @@ ReplaceOrInsertCommentBlock(configText, desiredLines, afterAnchorText := "", bef
 }
 
 ApplyConfigCompatibilityMigrations(configText) {
-    global ShowButtonKeys, ToggleHotkey
+    global ButtonGapOverride, ShowButtonKeys, ToggleHotkey
 
     settingCommentLines := [
         "; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them."
         , '; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.'
+        , '; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.'
         , "; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it."
         , "; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically."
     ]
@@ -1017,7 +1053,8 @@ ApplyConfigCompatibilityMigrations(configText) {
     )
     configText := UpsertConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys), "StealMouseInput")
     configText := UpsertConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey), "ShowButtonKeys")
-    configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ToggleHotkey")
+    configText := UpsertConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride), "ToggleHotkey")
+    configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ButtonGapOverride")
     configText := UpsertConfigAssignment(configText, "CenterLogoFile", SerializeAhkString("images\StarHUD-center-logo-200x200.png"), "ShowOuterBorder")
     configText := ReplaceOrInsertCommentBlock(
         configText,
@@ -1074,7 +1111,7 @@ SerializeSizeConfigValue(sizeValue) {
 }
 
 WriteConfigStateToFile(createBackup := false, filePath := "") {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     if filePath = ""
         filePath := GetConfigFilePath()
@@ -1092,6 +1129,7 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     configText := ReplaceConfigAssignment(configText, "StealMouseInput", BoolToAhk(StealMouseInput))
     configText := ReplaceConfigAssignment(configText, "ShowButtonKeys", BoolToAhk(ShowButtonKeys))
     configText := ReplaceConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey))
+    configText := ReplaceConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride))
     configText := ReplaceConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder))
     configText := ReplaceManagedLayoutBlock(configText)
 
@@ -1193,12 +1231,73 @@ CreateSolidLayer(gui, x, y, w, h, color, radius := 0, createdControls := 0) {
     if w <= 0 || h <= 0
         return
 
-    ctrl := gui.Add("Text", "x" x " y" y " w" w " h" h " Background" color, "")
+    ctrl := gui.Add("Picture", "x" x " y" y " w" w " h" h " +0xE", "")
     if IsObject(createdControls)
         createdControls.Push(ctrl)
+    hBitmap := CreateSolidBitmap(w, h, color, radius)
+    if hBitmap
+        SetManagedPictureBitmap(gui.Hwnd, ctrl, hBitmap)
     if radius > 0
         ApplyRoundedRegion(ctrl.Hwnd, w, h, radius)
     return ctrl
+}
+
+CreateSolidBitmap(targetW, targetH, color, radius := 0) {
+    if targetW <= 0 || targetH <= 0
+        return 0
+
+    pCanvasBitmap := 0
+    pGraphics := 0
+    brush := 0
+    hBitmap := 0
+
+    try
+    {
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", targetW, "Int", targetH, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &pCanvasBitmap := 0)
+            return 0
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", pCanvasBitmap, "Ptr*", &pGraphics := 0)
+            return 0
+        DllCall("gdiplus\GdipSetSmoothingMode", "Ptr", pGraphics, "Int", 4)
+        DllCall("gdiplus\GdipGraphicsClear", "Ptr", pGraphics, "UInt", 0x00000000)
+        if DllCall("gdiplus\GdipCreateSolidFill", "UInt", ("0xFF" NormalizeColorInput(color, "000000")) + 0, "Ptr*", &brush := 0)
+            return 0
+
+        radius := Max(0, Min(radius, Floor(Min(targetW, targetH) / 2)))
+        if radius <= 0
+        {
+            DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", 0, "Int", targetW, "Int", targetH)
+        }
+        else
+        {
+            diameter := radius * 2
+            innerW := Max(0, targetW - diameter)
+            innerH := Max(0, targetH - diameter)
+
+            if innerW > 0
+                DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", radius, "Int", 0, "Int", innerW, "Int", targetH)
+            if innerH > 0
+                DllCall("gdiplus\GdipFillRectangleI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", radius, "Int", targetW, "Int", innerH)
+
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", 0, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", targetW - diameter, "Int", 0, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", 0, "Int", targetH - diameter, "Int", diameter, "Int", diameter)
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", pGraphics, "Ptr", brush, "Int", targetW - diameter, "Int", targetH - diameter, "Int", diameter, "Int", diameter)
+        }
+
+        if DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", pCanvasBitmap, "Ptr*", &hBitmap := 0, "UInt", 0x00000000)
+            hBitmap := 0
+    }
+    finally
+    {
+        if brush
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+        if pGraphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", pGraphics)
+        if pCanvasBitmap
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", pCanvasBitmap)
+    }
+
+    return hBitmap
 }
 
 CreateFittedImageBitmap(imagePath, fitMode, targetW, targetH, backgroundColor := "000000") {
@@ -1421,9 +1520,9 @@ FinalizeTextLayout(textPlacements) {
 }
 
 HandleLeftButtonUp(wParam, lParam, msg, hwnd) {
-    global ButtonPages, CurrentPageIndex, EditMode, PageGuis, PanelVisible
+    global ButtonPages, CurrentPageIndex, EditMode, PageGuis, PanelVisible, RebuildingPageGuis
 
-    if !PanelVisible
+    if !PanelVisible || RebuildingPageGuis || CurrentPageIndex > PageGuis.Length
         return
 
     currentGui := PageGuis[CurrentPageIndex]
@@ -1606,27 +1705,35 @@ Clamp(value, minValue, maxValue) {
     return Max(minValue, Min(value, maxValue))
 }
 
-RebuildPageGuis(preserveVisible := true, activatePage := true) {
-    global ButtonPages, CurrentPageIndex, PageGuis, PanelVisible
+RebuildPageGuis(preserveVisible := true, activateWindow := true) {
+    global ButtonPages, CurrentPageIndex, PageGuis, PanelVisible, RebuildingPageGuis
 
+    RebuildingPageGuis := true
     shouldRestoreVisible := preserveVisible && PanelVisible && PageGuis.Length >= CurrentPageIndex
     if shouldRestoreVisible
         PageGuis[CurrentPageIndex].GetPos(&panelX, &panelY)
 
-    for _, pageGui in PageGuis
+    try
     {
-        ReleaseGuiPictureBitmaps(pageGui.Hwnd)
-        try pageGui.Destroy()
+        for _, pageGui in PageGuis
+        {
+            ReleaseGuiPictureBitmaps(pageGui.Hwnd)
+            try pageGui.Destroy()
+        }
+
+        PageGuis := []
+        for _, layout in ButtonPages
+            PageGuis.Push(CreatePageGui(layout))
+
+        if shouldRestoreVisible
+            ShowCurrentPage(panelX, panelY, activateWindow)
+        else
+            PanelVisible := false
     }
-
-    PageGuis := []
-    for _, layout in ButtonPages
-        PageGuis.Push(CreatePageGui(layout))
-
-    if shouldRestoreVisible
-        ShowCurrentPage(panelX, panelY, activatePage)
-    else
-        PanelVisible := false
+    finally
+    {
+        RebuildingPageGuis := false
+    }
 }
 
 CreateEditModeChrome(gui) {
@@ -1669,7 +1776,9 @@ HandleEditModeClick(pageIndex, rowIndex, colIndex) {
         if EditSwapSelection.pageIndex = pageIndex && EditSwapSelection.row = rowIndex && EditSwapSelection.col = colIndex
         {
             EditSwapSelection := 0
-            RebuildPageGuis(PanelVisible)
+            RebuildPageGuis(PanelVisible, false)
+            if IsObject(ConfigDialogState)
+                WinActivate("ahk_id " ConfigDialogState.gui.Hwnd)
         }
         else
         {
@@ -2306,12 +2415,85 @@ GetSizeProfileOptions() {
     return options
 }
 
+GetBuiltInSizeSliderValue(sizeKey := "") {
+    global SizeProfiles, Size
+
+    if sizeKey = ""
+        sizeKey := NormalizeSizeKey(Size)
+    if RegExMatch(sizeKey, "^\d+$")
+    {
+        numericValue := sizeKey + 0
+        if numericValue >= 1 && numericValue <= 5
+            return numericValue
+    }
+
+    if !SizeProfiles.Has(sizeKey)
+        return 3
+
+    targetHeight := SizeProfiles[sizeKey].targetHeight
+    bestValue := 3
+    bestDistance := ""
+    Loop 5
+    {
+        candidateValue := A_Index
+        candidateKey := Format("{}", candidateValue)
+        if !SizeProfiles.Has(candidateKey)
+            continue
+        distance := Abs(SizeProfiles[candidateKey].targetHeight - targetHeight)
+        if bestDistance = "" || distance < bestDistance
+        {
+            bestDistance := distance
+            bestValue := candidateValue
+        }
+    }
+    return bestValue
+}
+
+NormalizeSliderRangeValue(value, minValue, maxValue, fallbackValue) {
+    textValue := Trim(Format("{}", value))
+    if !RegExMatch(textValue, "^\d+$")
+        return fallbackValue
+    numericValue := textValue + 0
+    return Max(minValue, Min(maxValue, numericValue))
+}
+
+SyncConfigDialogSliderDisplays() {
+    global ConfigDialogState, SizeProfiles
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    sizeValue := NormalizeSliderRangeValue(ConfigDialogState.sizeSlider.Value, 1, 5, 3)
+    sizeKey := Format("{}", sizeValue)
+    ConfigDialogState.sizeValueEdit.Value := sizeKey
+    if SizeProfiles.Has(sizeKey)
+        ConfigDialogState.sizeHelperText.Text := "[default " SizeProfiles[sizeKey].targetHeight "]"
+    else
+        ConfigDialogState.sizeHelperText.Text := "[default]"
+
+    defaultGap := SizeProfiles.Has(sizeKey) ? SizeProfiles[sizeKey].btnGap : 0
+    if ConfigDialogState.buttonGapDefaultCheck.Value = 1
+        ConfigDialogState.buttonGapSlider.Value := defaultGap
+    gapValue := NormalizeSliderRangeValue(ConfigDialogState.buttonGapSlider.Value, 0, 200, defaultGap)
+    ConfigDialogState.buttonGapValueEdit.Value := gapValue
+    ConfigDialogState.buttonGapHelperText.Text := "[default " defaultGap "]"
+    SetEditorControlEnabled(ConfigDialogState.buttonGapSlider, ConfigDialogState.buttonGapDefaultCheck.Value != 1)
+
+    cornerDefault := 0
+    if ConfigDialogState.cornerRadiusDefaultCheck.Value = 1
+        ConfigDialogState.cornerRadiusSlider.Value := cornerDefault
+    cornerValue := NormalizeSliderRangeValue(ConfigDialogState.cornerRadiusSlider.Value, 0, 200, cornerDefault)
+    ConfigDialogState.cornerRadiusValueEdit.Value := cornerValue
+    ConfigDialogState.cornerRadiusHelperText.Text := "[default " cornerDefault "]"
+    SetEditorControlEnabled(ConfigDialogState.cornerRadiusSlider, ConfigDialogState.cornerRadiusDefaultCheck.Value != 1)
+}
+
 OpenImagesFolder(*) {
     Run('explorer.exe "' EnsureImagesFolderExists() '"')
 }
 
 CaptureConfigDialogPreviewState() {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     return {
         size: Size,
@@ -2321,14 +2503,17 @@ CaptureConfigDialogPreviewState() {
         fillColor: FillColor,
         openPositionMode: OpenPositionMode,
         toggleHotkey: ToggleHotkey,
+        buttonGapOverride: ButtonGapOverride,
+        buttonGapUsesDefault: ButtonGapOverride = "",
+        cornerRadiusUsesDefault: CornerRadius = 0,
         stealMouseInput: StealMouseInput,
         showButtonKeys: ShowButtonKeys,
         showOuterBorder: ShowOuterBorder
     }
 }
 
-ApplyConfigDialogPreviewState(state, activatePage := true) {
-    global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+ApplyConfigDialogPreviewState(state, activateWindow := true) {
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     oldFrameColor := FrameColor
     oldFillColor := FillColor
@@ -2341,6 +2526,7 @@ ApplyConfigDialogPreviewState(state, activatePage := true) {
     FillColor := state.fillColor
     OpenPositionMode := state.openPositionMode
     ToggleHotkey := state.toggleHotkey
+    ButtonGapOverride := state.buttonGapOverride
     StealMouseInput := state.stealMouseInput
     ShowButtonKeys := state.showButtonKeys
     ShowOuterBorder := state.showOuterBorder
@@ -2351,16 +2537,16 @@ ApplyConfigDialogPreviewState(state, activatePage := true) {
         RegisterToggleHotkeys(ToggleHotkey)
     RefreshCenterButtonTemplate()
     UpdateButtonsForDefaultColorChange(oldFrameColor, oldFillColor)
-    RebuildPageGuis(PanelVisible, activatePage)
+    RebuildPageGuis(PanelVisible, activateWindow)
 }
 
-BuildConfigDialogPreviewState(strict := true, includeCornerRadiusPreview := true) {
-    global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, SizeProfiles, StealMouseInput, ToggleHotkey
+BuildConfigDialogPreviewState(strict := true) {
+    global ButtonGapOverride, ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, SizeProfiles, StealMouseInput, ToggleHotkey
 
     if !IsObject(ConfigDialogState)
         return 0
 
-    newSize := NormalizeSizeKey(ConfigDialogState.sizeList.Text)
+    newSize := NormalizeSizeKey(ConfigDialogState.sizeValueEdit.Value)
     if !SizeProfiles.Has(newSize)
     {
         if strict
@@ -2376,18 +2562,13 @@ BuildConfigDialogPreviewState(strict := true, includeCornerRadiusPreview := true
         return 0
     }
 
-    if includeCornerRadiusPreview
-    {
-        try newCornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
-        catch as err
-        {
-            if strict
-                throw err
-            return 0
-        }
-    }
-    else
-        newCornerRadius := CornerRadius
+    defaultGap := SizeProfiles.Has(newSize) ? SizeProfiles[newSize].btnGap : 0
+    gapValue := NormalizeSliderRangeValue(ConfigDialogState.buttonGapSlider.Value, 0, 200, defaultGap)
+    newButtonGapOverride := ConfigDialogState.buttonGapDefaultCheck.Value = 1 ? "" : gapValue
+
+    newCornerRadius := ConfigDialogState.cornerRadiusDefaultCheck.Value = 1
+        ? 0
+        : NormalizeSliderRangeValue(ConfigDialogState.cornerRadiusSlider.Value, 0, 200, 0)
 
     try newMaskColor := NormalizeColorInput(ConfigDialogState.maskColorEdit.Value, MaskColor)
     catch as err
@@ -2421,10 +2602,55 @@ BuildConfigDialogPreviewState(strict := true, includeCornerRadiusPreview := true
         fillColor: newFillColor,
         openPositionMode: ConfigDialogState.openPositionList.Text,
         toggleHotkey: newToggleHotkey,
+        buttonGapOverride: newButtonGapOverride,
+        buttonGapUsesDefault: ConfigDialogState.buttonGapDefaultCheck.Value = 1,
+        cornerRadiusUsesDefault: ConfigDialogState.cornerRadiusDefaultCheck.Value = 1,
         stealMouseInput: ConfigDialogState.stealMouseInputCheck.Value = 1,
         showButtonKeys: ConfigDialogState.showButtonKeysCheck.Value = 1,
         showOuterBorder: ConfigDialogState.showOuterBorderCheck.Value = 1
     }
+}
+
+UpdateConfigDialogGapHelper() {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    SyncConfigDialogSliderDisplays()
+}
+
+HandleConfigSizeSliderChange(*) {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+    ConfigDialogState.sizeSlider.Value := NormalizeSliderRangeValue(ConfigDialogState.sizeSlider.Value, 1, 5, 3)
+    UpdateConfigDialogPreview()
+}
+
+HandleConfigButtonGapSliderChange(*) {
+    global ConfigDialogState, SizeProfiles
+
+    if !IsObject(ConfigDialogState)
+        return
+    sizeKey := Format("{}", NormalizeSliderRangeValue(ConfigDialogState.sizeSlider.Value, 1, 5, 3))
+    defaultGap := SizeProfiles.Has(sizeKey) ? SizeProfiles[sizeKey].btnGap : 0
+    ConfigDialogState.buttonGapSlider.Value := NormalizeSliderRangeValue(ConfigDialogState.buttonGapSlider.Value, 0, 200, defaultGap)
+    if ConfigDialogState.buttonGapDefaultCheck.Value = 1 && ConfigDialogState.buttonGapSlider.Value != defaultGap
+        ConfigDialogState.buttonGapDefaultCheck.Value := 0
+    UpdateConfigDialogPreview()
+}
+
+HandleConfigCornerRadiusSliderChange(*) {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+    ConfigDialogState.cornerRadiusSlider.Value := NormalizeSliderRangeValue(ConfigDialogState.cornerRadiusSlider.Value, 0, 200, 0)
+    if ConfigDialogState.cornerRadiusDefaultCheck.Value = 1 && ConfigDialogState.cornerRadiusSlider.Value != 0
+        ConfigDialogState.cornerRadiusDefaultCheck.Value := 0
+    UpdateConfigDialogPreview()
 }
 
 UpdateConfigDialogPreview(*) {
@@ -2432,38 +2658,17 @@ UpdateConfigDialogPreview(*) {
     
     if !IsObject(ConfigDialogState)
         return
-    
-    try
-    {
-        previewState := BuildConfigDialogPreviewState(false, false)
-        if !IsObject(previewState)
-            return
-        ApplyConfigDialogPreviewState(previewState, false)
-    }
-    catch
-    {
-    }
-}
 
-SetConfigDialogCornerRadiusPreview(*) {
-    global ConfigDialogState
-
-    if !IsObject(ConfigDialogState)
+    previewState := BuildConfigDialogPreviewState(false)
+    if !IsObject(previewState)
         return
 
-    try
-    {
-        previewState := BuildConfigDialogPreviewState(true, true)
-        ApplyConfigDialogPreviewState(previewState, false)
-    }
-    catch as err
-    {
-        MsgBox(err.Message, "StarHUD Config Error")
-    }
+    UpdateConfigDialogGapHelper()
+    ApplyConfigDialogPreviewState(previewState, false)
 }
 
 OpenConfigEditor() {
-    global ActiveConfigFileName, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ActiveConfigFileName, ButtonGapOverride, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     configFileNames := GetAvailableConfigFiles()
     configDisplayNames := GetConfigDisplayNames(configFileNames)
@@ -2484,15 +2689,33 @@ OpenConfigEditor() {
     configGui.Add("Text", "xm y+12", "Current page")
     pageInfoText := configGui.Add("Text", "x+8 yp w160", "")
 
+    sliderLabelW := 90
+    sliderValueW := 52
+    sliderW := 220
+
+    sizeSliderValue := GetBuiltInSizeSliderValue()
+    gapDefaultValue := GetEffectiveButtonGap(Format("{}", sizeSliderValue))
+    gapSliderValue := ButtonGapOverride = "" ? gapDefaultValue : NormalizeSliderRangeValue(ButtonGapOverride, 0, 200, gapDefaultValue)
+    cornerSliderValue := NormalizeSliderRangeValue(CornerRadius, 0, 200, 0)
+
     configGui.Add("Text", "xm y+10", "Size")
-    sizeList := configGui.Add("DropDownList", "xm w140", sizeOptions)
-    ChooseDropDownValue(sizeList, Size, sizeOptions)
-    configGui.Add("Text", "xm y+2 c808080", "Pick the built-in scale profile that best matches your screen.")
+    sizeHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
+    sizeSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range1-5 NoTicks ToolTip", sizeSliderValue)
+    sizeValueEdit := configGui.Add("Edit", "x+8 yp w" sliderValueW " ReadOnly Center", sizeSliderValue)
+
+    configGui.Add("Text", "xm y+8", "Button gap")
+    buttonGapHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
+    buttonGapSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range0-200 NoTicks ToolTip", gapSliderValue)
+    buttonGapDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2", "Default")
+    buttonGapDefaultCheck.Value := ButtonGapOverride = "" ? 1 : 0
+    buttonGapValueEdit := configGui.Add("Edit", "x+8 yp-2 w" sliderValueW " ReadOnly Center", gapSliderValue)
 
     configGui.Add("Text", "xm y+8", "Corner radius")
-    cornerRadiusEdit := configGui.Add("Edit", "xm w140", CornerRadius)
-    cornerRadiusSetButton := configGui.Add("Button", "x+8 yp-2 w54", "Set")
-    configGui.Add("Text", "xm y+2 c808080", "Rounds button corners. Use 0 for square edges.")
+    cornerRadiusHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
+    cornerRadiusSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range0-200 NoTicks ToolTip", cornerSliderValue)
+    cornerRadiusDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2", "Default")
+    cornerRadiusDefaultCheck.Value := CornerRadius = 0 ? 1 : 0
+    cornerRadiusValueEdit := configGui.Add("Edit", "x+8 yp-2 w" sliderValueW " ReadOnly Center", cornerSliderValue)
 
     configGui.Add("Text", "xm y+8", "Mask color")
     maskColorEdit := configGui.Add("Edit", "xm w140", MaskColor)
@@ -2545,8 +2768,17 @@ OpenConfigEditor() {
         configDisplayNames: configDisplayNames,
         suppressConfigSwitch: false,
         pageInfoText: pageInfoText,
-        sizeList: sizeList,
-        cornerRadiusEdit: cornerRadiusEdit,
+        sizeSlider: sizeSlider,
+        sizeHelperText: sizeHelperText,
+        sizeValueEdit: sizeValueEdit,
+        buttonGapSlider: buttonGapSlider,
+        buttonGapDefaultCheck: buttonGapDefaultCheck,
+        buttonGapHelperText: buttonGapHelperText,
+        buttonGapValueEdit: buttonGapValueEdit,
+        cornerRadiusSlider: cornerRadiusSlider,
+        cornerRadiusDefaultCheck: cornerRadiusDefaultCheck,
+        cornerRadiusHelperText: cornerRadiusHelperText,
+        cornerRadiusValueEdit: cornerRadiusValueEdit,
         maskColorEdit: maskColorEdit,
         frameColorEdit: frameColorEdit,
         fillColorEdit: fillColorEdit,
@@ -2558,12 +2790,15 @@ OpenConfigEditor() {
         originalState: CaptureConfigDialogPreviewState()
     }
 
-    sizeList.OnEvent("Change", UpdateConfigDialogPreview)
+    sizeSlider.OnEvent("Change", HandleConfigSizeSliderChange)
+    buttonGapSlider.OnEvent("Change", HandleConfigButtonGapSliderChange)
+    buttonGapDefaultCheck.OnEvent("Click", UpdateConfigDialogPreview)
+    cornerRadiusSlider.OnEvent("Change", HandleConfigCornerRadiusSliderChange)
+    cornerRadiusDefaultCheck.OnEvent("Click", UpdateConfigDialogPreview)
     maskColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
     frameColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
     fillColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
     showOuterBorderCheck.OnEvent("Click", UpdateConfigDialogPreview)
-    cornerRadiusSetButton.OnEvent("Click", SetConfigDialogCornerRadiusPreview)
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
     fillColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("fillColorEdit"))
@@ -2581,6 +2816,8 @@ OpenConfigEditor() {
     configGui.OnEvent("Close", CloseConfigEditor)
     configGui.OnEvent("Escape", CloseConfigEditor)
     UpdateConfigDialogPageInfo()
+    ConfigDialogState.buttonGapUsesDefault := ButtonGapOverride = ""
+    UpdateConfigDialogGapHelper()
     configGui.Show("AutoSize")
 }
 
@@ -2921,20 +3158,32 @@ HideAllPages() {
         pageGui.Hide()
 }
 
-ShowCurrentPage(panelX, panelY, activatePage := true) {
+ShowCurrentPage(panelX, panelY, activateWindow := true) {
     global CurrentPageIndex, EditMode, GuiH, GuiW, PageGuis, PanelVisible, StealMouseInput
+
+    if CurrentPageIndex < 1 || CurrentPageIndex > PageGuis.Length
+    {
+        PanelVisible := false
+        return
+    }
 
     HideAllPages()
     pageGui := PageGuis[CurrentPageIndex]
+    try hwnd := pageGui.Hwnd
+    catch
+    {
+        PanelVisible := false
+        return
+    }
     showOptions := "x" panelX " y" panelY " w" GuiW " h" GuiH
-    if !activatePage || (!StealMouseInput && !EditMode)
+    if !activateWindow || (!StealMouseInput && !EditMode)
         showOptions := "NA " showOptions
 
     pageGui.Show(showOptions)
-    WinSetAlwaysOnTop 1, "ahk_id " pageGui.Hwnd
-    WinMoveTop "ahk_id " pageGui.Hwnd
-    if activatePage && (StealMouseInput || EditMode)
-        WinActivate("ahk_id " pageGui.Hwnd)
+    WinSetAlwaysOnTop 1, "ahk_id " hwnd
+    WinMoveTop "ahk_id " hwnd
+    if activateWindow && (StealMouseInput || EditMode)
+        WinActivate("ahk_id " hwnd)
     PanelVisible := true
 }
 

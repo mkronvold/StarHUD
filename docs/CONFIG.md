@@ -41,17 +41,18 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 ### HUD-wide settings
 
 - **Size**: selects one of the built-in size profiles, which control button size, gap, margins, border widths, and insets.
-- **Corner radius**: enter the roundness value, then click **Set** to force a preview refresh on the open HUD. **Save** persists it to the config.
+- **Corner radius**: adjusts how rounded the button corners and panel visuals appear.
 - **Mask color**: sets the transparent mask color used for the HUD window.
 - **Frame color**: sets the default outer frame color for buttons.
 - **Fill color**: sets the default inner fill color used behind button labels and images.
+- **Button gap override**: when left blank, StarHUD uses the selected size profile's built-in gap. Enter a whole number to override the gap globally without changing the rest of the size profile.
 - **Show outer border**: toggles the thin outer frame ring around each button.
 - **Open position**: chooses where the HUD opens: at the mouse, auto-split to the nearest side, always-left, or always-right.
 - **Toggle key**: sets the bare AutoHotkey key name used to show or hide the HUD. `RAlt` + that same key toggles layout edit mode.
 - **Steal mouse input**: when enabled, the HUD captures mouse interaction so the underlying app does not receive clicks or movement while the panel is open.
 - **Show key labels on buttons**: shows or hides the action keys that appear under each button title.
 - **Open Images**: opens the `images\` folder in Explorer and creates it if needed, so you can manage button images without hunting for the path manually.
-- **Live HUD preview**: size, outer border, and color changes update the open HUD immediately while the config dialog is open. Corner radius updates when you click **Set**. **Save** keeps the current values; **Close** restores the original values.
+- **Live HUD preview**: size, corner radius, button gap override, outer border, and color changes update the open HUD immediately while the config dialog is open. **Save** keeps them; **Close** restores the original values.
 
 ### Page management
 
