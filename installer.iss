@@ -313,7 +313,7 @@ begin
           end;
         end;
       IDNO:
-        ; User chose to skip - continue without AHK
+        begin end; // User chose to skip - continue without AHK
       IDCANCEL:
         Result := False;
     end;
