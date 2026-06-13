@@ -85,8 +85,7 @@ begin
   Result := False;
   TempFile := ExpandConstant('{tmp}\') + AHK_INSTALLER_NAME;
 
-  DownloadCmd := Format('-NoProfile -Command "Invoke-WebRequest -Uri ''%s'' -OutFile ''%s''"',
-                        [AHK_DOWNLOAD_URL, TempFile]);
+  DownloadCmd := Format('-NoProfile -Command "Invoke-WebRequest -Uri ''%s'' -OutFile ''%s''"', [AHK_DOWNLOAD_URL, TempFile]);
   if not Exec('powershell.exe', DownloadCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     MsgBox('Failed to download AutoHotkey v2. Please install it manually from https://www.autohotkey.com/',
