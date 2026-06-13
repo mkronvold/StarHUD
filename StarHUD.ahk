@@ -2731,6 +2731,7 @@ OpenConfigEditor() {
     fillColorEdit := configGui.Add("Edit", "xm w140", FillColor)
     fillColorPickButton := configGui.Add("Button", "x+8 yp-2 w54", "Pick")
     configGui.Add("Text", "xm y+2 c808080", "Default inner fill color behind button labels.")
+    configGui.Add("Text", "xm y+2 c808080", "Note: if fill color matches mask color, filled areas become transparent.")
 
     showOuterBorderCheck := configGui.Add("CheckBox", "xm y+8", "Show outer border")
     showOuterBorderCheck.Value := ShowOuterBorder ? 1 : 0
