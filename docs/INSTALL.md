@@ -2,9 +2,15 @@
 
 ## Files and folder layout
 
-Put all of the project files in one folder on your Windows machine, for example:
+Put all of the project files in one folder on your Windows machine. AutoHotkey defaults to:
 
-`C:\Tools\StarHUD\`
+`%USERPROFILE%\Documents\AutoHotkey\`
+
+so a good default location is:
+
+`C:\Users\<YourName>\Documents\AutoHotkey\StarHUD\`
+
+You can also use any other folder, for example `C:\Tools\StarHUD\`.
 
 Keep these files together in that same folder:
 
