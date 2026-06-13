@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 InstallKeybdHook()
 #UseHook
@@ -343,6 +343,44 @@ NormalizeSizeKey(sizeKey) {
     return StrLower(Format("{}", sizeKey))
 }
 
+NormalizePageNamePosition(value) {
+    position := StrLower(Trim(Format("{}", value)))
+    switch position
+    {
+        case "top", "bottom":
+            return position
+        default:
+            return "top"
+    }
+}
+
+GetPageNameDisplayHeight() {
+    global BtnSize, ShowPageNames
+
+    return ShowPageNames ? Max(28, Round(BtnSize * 0.32)) : 0
+}
+
+GetGridOriginY() {
+    global GridMargin, PageNamePosition, ShowPageNames
+
+    return GridMargin + (ShowPageNames && NormalizePageNamePosition(PageNamePosition) = "top" ? GetPageNameDisplayHeight() : 0)
+}
+
+GetPageDisplayName(pageIndex) {
+    global PageNames
+
+    if pageIndex >= 1 && pageIndex <= PageNames.Length
+        return Format("{}", PageNames[pageIndex])
+    return "Page " pageIndex
+}
+
+BuildDefaultPageNames(count) {
+    names := []
+    Loop count
+        names.Push("Page " A_Index)
+    return names
+}
+
 DetectClosestSizeKey(sizeProfiles, screenHeight) {
     closestKey := ""
     closestDistance := ""
@@ -383,6 +421,13 @@ if !IsSet(ShowButtonKeys)
     ShowButtonKeys := true
 if !IsSet(ShowOuterBorder)
     ShowOuterBorder := true
+if !IsSet(ShowPageNames)
+    ShowPageNames := false
+if !IsSet(PageNamePosition)
+    PageNamePosition := "top"
+PageNamePosition := NormalizePageNamePosition(PageNamePosition)
+if !IsSet(PageNames) || !IsObject(PageNames) || PageNames.Length != ButtonPages.Length
+    PageNames := BuildDefaultPageNames(ButtonPages.Length)
 
 ApplyCurrentSizeProfile()
 
@@ -468,6 +513,38 @@ CloneButtonCfg(cfg) {
     )
 }
 
+ClonePageLayout(layout) {
+    clonedLayout := []
+    for _, row in layout
+    {
+        clonedRow := []
+        for _, cfg in row
+            clonedRow.Push(CloneButtonCfg(cfg))
+        clonedLayout.Push(clonedRow)
+    }
+    return clonedLayout
+}
+
+CloneButtonPages(pages) {
+    clonedPages := []
+    for _, layout in pages
+        clonedPages.Push(ClonePageLayout(layout))
+    return clonedPages
+}
+
+ClonePageNames(pageNames) {
+    clonedNames := []
+    for _, name in pageNames
+        clonedNames.Push(Format("{}", name))
+    return clonedNames
+}
+
+SwapArrayEntries(items, firstIndex, secondIndex) {
+    tempValue := items[firstIndex]
+    items[firstIndex] := items[secondIndex]
+    items[secondIndex] := tempValue
+}
+
 RefreshCenterButtonTemplate() {
     global CenterButtonCfg, CenterLogoPath, FillColor
 
@@ -511,9 +588,9 @@ RefreshLayoutMetrics() {
     GridRows := ButtonPages[1].Length
     GridCols := ButtonPages[1][1].Length
     GuiW := GridMargin * 2 + GridCols * BtnSize + (GridCols - 1) * BtnGap
-    GuiH := GridMargin * 2 + GridRows * BtnSize + (GridRows - 1) * BtnGap
+    GuiH := GridMargin * 2 + GridRows * BtnSize + (GridRows - 1) * BtnGap + GetPageNameDisplayHeight()
     CenterClientX := GridMargin + Floor(GridCols / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
-    CenterClientY := GridMargin + Floor(GridRows / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
+    CenterClientY := GetGridOriginY() + Floor(GridRows / 2) * (BtnSize + BtnGap) + Floor(BtnSize / 2)
 }
 
 ApplyCurrentSizeProfile() {
@@ -634,7 +711,7 @@ JoinTokens(tokens, startIndex, endIndex) {
 }
 
 SerializeManagedLayoutBlock() {
-    global ButtonPages
+    global ButtonPages, PageNames
 
     lines := []
     loop ButtonPages.Length
@@ -651,8 +728,18 @@ SerializeManagedLayoutBlock() {
     Loop ButtonPages.Length
         pageRefs.Push("Page" A_Index "Layout")
     lines.Push("ButtonPages := [" ArrayJoin(pageRefs, ", ") "]")
+    lines.Push("PageNames := [" SerializePageNamesArray() "]")
 
     return ArrayJoin(lines, "`r`n")
+}
+
+SerializePageNamesArray() {
+    global PageNames
+
+    parts := []
+    for _, name in PageNames
+        parts.Push(SerializeAhkString(name))
+    return ArrayJoin(parts, ", ")
 }
 
 SerializePageRows(layout) {
@@ -912,7 +999,7 @@ CreateClonedConfigFile(targetFileName) {
 }
 
 CreateNewConfigFile(targetFileName) {
-    global ButtonPages, CurrentPageIndex
+    global ButtonPages, CurrentPageIndex, PageNames
 
     targetPath := GetConfigFilePath(targetFileName)
     if FileExist(targetPath)
@@ -921,15 +1008,18 @@ CreateNewConfigFile(targetFileName) {
     FileCopy(GetConfigFilePath(), targetPath, false)
     originalPages := ButtonPages
     originalPageIndex := CurrentPageIndex
+    originalPageNames := PageNames
     try
     {
         ButtonPages := [CreateEmptyPageLayout()]
+        PageNames := BuildDefaultPageNames(ButtonPages.Length)
         CurrentPageIndex := 1
         WriteConfigStateToFile(false, targetPath)
     }
     finally
     {
         ButtonPages := originalPages
+        PageNames := originalPageNames
         CurrentPageIndex := originalPageIndex
     }
 }
@@ -1021,13 +1111,15 @@ ReplaceOrInsertCommentBlock(configText, desiredLines, afterAnchorText := "", bef
 }
 
 ApplyConfigCompatibilityMigrations(configText) {
-    global ButtonGapOverride, ShowButtonKeys, ToggleHotkey
+    global ButtonGapOverride, PageNamePosition, ShowButtonKeys, ShowOuterBorder, ShowPageNames, ToggleHotkey
 
     settingCommentLines := [
         "; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them."
         , '; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.'
         , '; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.'
         , "; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it."
+        , '; Set ShowPageNames to true to show the current page name above or below the HUD, or false to hide it.'
+        , '; Set PageNamePosition to "top" or "bottom" to choose where page names appear when enabled.'
         , "; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically."
     ]
     controlCommentLines := [
@@ -1055,7 +1147,9 @@ ApplyConfigCompatibilityMigrations(configText) {
     configText := UpsertConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey), "ShowButtonKeys")
     configText := UpsertConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride), "ToggleHotkey")
     configText := UpsertConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder), "ButtonGapOverride")
-    configText := UpsertConfigAssignment(configText, "CenterLogoFile", SerializeAhkString("images\StarHUD-center-logo-200x200.png"), "ShowOuterBorder")
+    configText := UpsertConfigAssignment(configText, "ShowPageNames", BoolToAhk(ShowPageNames), "ShowOuterBorder")
+    configText := UpsertConfigAssignment(configText, "PageNamePosition", SerializeAhkString(PageNamePosition), "ShowPageNames")
+    configText := UpsertConfigAssignment(configText, "CenterLogoFile", SerializeAhkString("images\StarHUD-center-logo-200x200.png"), "PageNamePosition")
     configText := ReplaceOrInsertCommentBlock(
         configText,
         settingCommentLines,
@@ -1111,7 +1205,7 @@ SerializeSizeConfigValue(sizeValue) {
 }
 
 WriteConfigStateToFile(createBackup := false, filePath := "") {
-    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PageNamePosition, ShowButtonKeys, ShowOuterBorder, ShowPageNames, Size, StealMouseInput, ToggleHotkey
 
     if filePath = ""
         filePath := GetConfigFilePath()
@@ -1131,6 +1225,8 @@ WriteConfigStateToFile(createBackup := false, filePath := "") {
     configText := ReplaceConfigAssignment(configText, "ToggleHotkey", SerializeAhkString(ToggleHotkey))
     configText := ReplaceConfigAssignment(configText, "ButtonGapOverride", SerializeButtonGapOverrideValue(ButtonGapOverride))
     configText := ReplaceConfigAssignment(configText, "ShowOuterBorder", BoolToAhk(ShowOuterBorder))
+    configText := ReplaceConfigAssignment(configText, "ShowPageNames", BoolToAhk(ShowPageNames))
+    configText := ReplaceConfigAssignment(configText, "PageNamePosition", SerializeAhkString(PageNamePosition))
     configText := ReplaceManagedLayoutBlock(configText)
 
     file := FileOpen(filePath, "w", "UTF-8")
@@ -1480,7 +1576,7 @@ GetGridCellPos(row, col, &x, &y) {
     global BtnSize, BtnGap, GridMargin
 
     x := GridMargin + (col - 1) * (BtnSize + BtnGap)
-    y := GridMargin + (row - 1) * (BtnSize + BtnGap)
+    y := GetGridOriginY() + (row - 1) * (BtnSize + BtnGap)
 }
 
 ApplyRoundedRegion(hwnd, w, h, radius) {
@@ -1566,7 +1662,7 @@ GetButtonCellAtClientPos(layout, clientX, clientY) {
 
     stride := BtnSize + BtnGap
     relX := clientX - GridMargin
-    relY := clientY - GridMargin
+    relY := clientY - GetGridOriginY()
 
     if relX < 0 || relY < 0
         return 0
@@ -1722,8 +1818,8 @@ RebuildPageGuis(preserveVisible := true, activateWindow := true) {
         }
 
         PageGuis := []
-        for _, layout in ButtonPages
-            PageGuis.Push(CreatePageGui(layout))
+        for pageIndex, layout in ButtonPages
+            PageGuis.Push(CreatePageGui(pageIndex, layout))
 
         if shouldRestoreVisible
             ShowCurrentPage(panelX, panelY, activateWindow)
@@ -2493,7 +2589,7 @@ OpenImagesFolder(*) {
 }
 
 CaptureConfigDialogPreviewState() {
-    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PageNamePosition, ShowButtonKeys, ShowOuterBorder, ShowPageNames, Size, StealMouseInput, ToggleHotkey
 
     return {
         size: Size,
@@ -2508,12 +2604,14 @@ CaptureConfigDialogPreviewState() {
         cornerRadiusUsesDefault: CornerRadius = 0,
         stealMouseInput: StealMouseInput,
         showButtonKeys: ShowButtonKeys,
-        showOuterBorder: ShowOuterBorder
+        showOuterBorder: ShowOuterBorder,
+        showPageNames: ShowPageNames,
+        pageNamePosition: NormalizePageNamePosition(PageNamePosition)
     }
 }
 
 ApplyConfigDialogPreviewState(state, activateWindow := true) {
-    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PageNamePosition, PanelVisible, ShowButtonKeys, ShowOuterBorder, ShowPageNames, Size, StealMouseInput, ToggleHotkey
 
     oldFrameColor := FrameColor
     oldFillColor := FillColor
@@ -2530,6 +2628,8 @@ ApplyConfigDialogPreviewState(state, activateWindow := true) {
     StealMouseInput := state.stealMouseInput
     ShowButtonKeys := state.showButtonKeys
     ShowOuterBorder := state.showOuterBorder
+    ShowPageNames := state.showPageNames
+    PageNamePosition := NormalizePageNamePosition(state.pageNamePosition)
 
     ApplyCurrentSizeProfile()
     CornerRadius := newCornerRadius
@@ -2541,7 +2641,7 @@ ApplyConfigDialogPreviewState(state, activateWindow := true) {
 }
 
 BuildConfigDialogPreviewState(strict := true) {
-    global ButtonGapOverride, ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, SizeProfiles, StealMouseInput, ToggleHotkey
+    global ButtonGapOverride, ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PageNamePosition, ShowButtonKeys, ShowOuterBorder, ShowPageNames, Size, SizeProfiles, StealMouseInput, ToggleHotkey
 
     if !IsObject(ConfigDialogState)
         return 0
@@ -2607,7 +2707,9 @@ BuildConfigDialogPreviewState(strict := true) {
         cornerRadiusUsesDefault: ConfigDialogState.cornerRadiusDefaultCheck.Value = 1,
         stealMouseInput: ConfigDialogState.stealMouseInputCheck.Value = 1,
         showButtonKeys: ConfigDialogState.showButtonKeysCheck.Value = 1,
-        showOuterBorder: ConfigDialogState.showOuterBorderCheck.Value = 1
+        showOuterBorder: ConfigDialogState.showOuterBorderCheck.Value = 1,
+        showPageNames: ConfigDialogState.showPageNamesCheck.Value = 1,
+        pageNamePosition: NormalizePageNamePosition(ConfigDialogState.pageNamePositionList.Text)
     }
 }
 
@@ -2659,6 +2761,7 @@ UpdateConfigDialogPreview(*) {
     if !IsObject(ConfigDialogState)
         return
 
+    UpdateConfigDialogPageNamePositionState()
     previewState := BuildConfigDialogPreviewState(false)
     if !IsObject(previewState)
         return
@@ -2667,100 +2770,185 @@ UpdateConfigDialogPreview(*) {
     ApplyConfigDialogPreviewState(previewState, false)
 }
 
+UpdateConfigDialogPageNamePositionState() {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    SetEditorControlEnabled(ConfigDialogState.pageNamePositionList, ConfigDialogState.showPageNamesCheck.Value = 1)
+}
+
+HandleConfigShowPageNamesToggle(*) {
+    UpdateConfigDialogPageNamePositionState()
+    UpdateConfigDialogPreview()
+}
+
+RefreshConfigDialogPageList() {
+    global ConfigDialogState, PageNames
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    pageListView := ConfigDialogState.pageListView
+    Loop pageListView.GetCount()
+        pageListView.Delete(1)
+    for pageIndex, pageName in PageNames
+        pageListView.Add(, pageIndex, pageName)
+    pageListView.ModifyCol(1, 30)
+    pageListView.ModifyCol(2, 180)
+}
+
+HandleConfigPageListSelect(ctrl, item, selected) {
+    global ConfigDialogState, CurrentPageIndex
+
+    if !selected || !IsObject(ConfigDialogState) || ConfigDialogState.suppressPageSelection
+        return
+
+    CurrentPageIndex := item
+    UpdateConfigDialogPageInfo()
+    UpdateConfigDialogPreview()
+}
+
+HandlePageNameEditChange(*) {
+    global ConfigDialogState, CurrentPageIndex, PageNames
+
+    if !IsObject(ConfigDialogState) || ConfigDialogState.suppressPageNameEdit
+        return
+    if CurrentPageIndex < 1 || CurrentPageIndex > PageNames.Length
+        return
+
+    PageNames[CurrentPageIndex] := Format("{}", ConfigDialogState.pageNameEdit.Value)
+    ConfigDialogState.pageListView.Modify(CurrentPageIndex, "", CurrentPageIndex, PageNames[CurrentPageIndex])
+    UpdateConfigDialogPreview()
+}
+
+MoveConfigPage(direction) {
+    global ButtonPages, CurrentPageIndex, PageNames
+
+    targetIndex := CurrentPageIndex + direction
+    if CurrentPageIndex < 1 || CurrentPageIndex > ButtonPages.Length || targetIndex < 1 || targetIndex > ButtonPages.Length
+        return
+
+    ApplyConfigDialogValues()
+    SwapArrayEntries(ButtonPages, CurrentPageIndex, targetIndex)
+    SwapArrayEntries(PageNames, CurrentPageIndex, targetIndex)
+    CurrentPageIndex := targetIndex
+    RefreshConfigDialogPageList()
+    UpdateConfigDialogPageInfo()
+    UpdateConfigDialogPreview()
+}
+
+HandlePageMoveUp(*) {
+    MoveConfigPage(-1)
+}
+
+HandlePageMoveDown(*) {
+    MoveConfigPage(1)
+}
+
 OpenConfigEditor() {
-    global ActiveConfigFileName, ButtonGapOverride, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
+    global ActiveConfigFileName, ButtonGapOverride, ButtonPages, ConfigDialogState, CornerRadius, CurrentPageIndex, FillColor, FrameColor, MaskColor, OpenPositionMode, PageNamePosition, PageNames, ShowButtonKeys, ShowOuterBorder, ShowPageNames, Size, StealMouseInput, ToggleHotkey
 
     configFileNames := GetAvailableConfigFiles()
     configDisplayNames := GetConfigDisplayNames(configFileNames)
-    sizeOptions := GetSizeProfileOptions()
     openPositionOptions := ["auto-split", "mouse", "always-left", "always-right"]
+    pageNamePositionOptions := ["top", "bottom"]
     configGui := Gui("+AlwaysOnTop +ToolWindow +OwnDialogs", "StarHUD Config")
     configGui.MarginX := 12
     configGui.MarginY := 10
 
-    configGui.Add("Text", "xm", "Config file")
-    configList := configGui.Add("DropDownList", "xm w220", configDisplayNames)
-    ChooseDropDownValue(configList, GetConfigDisplayName(ActiveConfigFileName), configDisplayNames)
-    configGui.Add("Text", "xm y+2 c808080", "Switches the active config profile and reloads StarHUD.")
-    newConfigButton := configGui.Add("Button", "xm y+10 w90", "New Config")
-    cloneConfigButton := configGui.Add("Button", "x+8 w90", "Clone Config")
-    deleteConfigButton := configGui.Add("Button", "x+8 w90", "Delete Config")
-
-    configGui.Add("Text", "xm y+12", "Current page")
-    pageInfoText := configGui.Add("Text", "x+8 yp w160", "")
-
-    sliderLabelW := 90
-    sliderValueW := 52
-    sliderW := 220
+    leftX := 12
+    leftW := 250
+    rightX := 280
+    rightW := 268
+    innerPad := 12
+    leftInnerX := leftX + innerPad
+    rightInnerX := rightX + innerPad
+    innerWLeft := leftW - innerPad * 2
+    sliderValueW := 40
+    sliderW := 142
+    sliderCheckW := 58
 
     sizeSliderValue := GetBuiltInSizeSliderValue()
     gapDefaultValue := GetEffectiveButtonGap(Format("{}", sizeSliderValue))
     gapSliderValue := ButtonGapOverride = "" ? gapDefaultValue : NormalizeSliderRangeValue(ButtonGapOverride, 0, 200, gapDefaultValue)
     cornerSliderValue := NormalizeSliderRangeValue(CornerRadius, 0, 200, 0)
 
-    configGui.Add("Text", "xm y+10", "Size")
-    sizeHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
-    sizeSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range1-5 NoTicks ToolTip", sizeSliderValue)
-    sizeValueEdit := configGui.Add("Edit", "x+8 yp w" sliderValueW " ReadOnly Center", sizeSliderValue)
+    configGui.Add("GroupBox", "x" leftX " y10 w" leftW " h228", "Pages")
+    currentPageText := configGui.Add("Text", "x" leftInnerX " y34 w" innerWLeft, "")
+    pageListView := configGui.Add("ListView", "x" leftInnerX " y54 w" innerWLeft " h108 -Multi", ["#", "Name"])
+    pageListView.Opt("+Grid")
+    configGui.Add("Text", "x" leftInnerX " y170", "Page name:")
+    pageNameEdit := configGui.Add("Edit", "x" (leftInnerX + 74) " y167 w" (innerWLeft - 74), "")
+    pageMoveUpButton := configGui.Add("Button", "x" leftInnerX " y198 w50", "Up")
+    pageMoveDownButton := configGui.Add("Button", "x+6 w50", "Down")
+    addPageButton := configGui.Add("Button", "x+6 w50", "Add")
+    deletePageButton := configGui.Add("Button", "x+6 w62", "Delete")
+    resetPageButton := configGui.Add("Button", "x+6 w56", "Reset")
 
-    configGui.Add("Text", "xm y+8", "Button gap")
-    buttonGapHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
-    buttonGapSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range0-200 NoTicks ToolTip", gapSliderValue)
-    buttonGapDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2", "Default")
+    configGui.Add("GroupBox", "x" leftX " y246 w" leftW " h134", "Config File")
+    configGui.Add("Text", "x" leftInnerX " y270", "Config file")
+    configList := configGui.Add("DropDownList", "x" leftInnerX " y288 w" innerWLeft, configDisplayNames)
+    ChooseDropDownValue(configList, GetConfigDisplayName(ActiveConfigFileName), configDisplayNames)
+    newConfigButton := configGui.Add("Button", "x" leftInnerX " y320 w66", "New")
+    cloneConfigButton := configGui.Add("Button", "x+6 w66", "Clone")
+    deleteConfigButton := configGui.Add("Button", "x+6 w66", "Delete")
+    openFolderButton := configGui.Add("Button", "x" leftInnerX " y350 w108", "Open File Location")
+    openImagesButton := configGui.Add("Button", "x+8 w98", "Open Images")
+
+    configGui.Add("GroupBox", "x" rightX " y10 w" rightW " h300", "Appearance")
+    configGui.Add("Text", "x" rightInnerX " y34 w100", "Size")
+    sizeHelperText := configGui.Add("Text", "x" (rightInnerX + 108) " y34 w120 c808080", "")
+    sizeSlider := configGui.Add("Slider", "x" rightInnerX " y52 w" sliderW " Range1-5 NoTicks ToolTip", sizeSliderValue)
+    sizeValueEdit := configGui.Add("Edit", "x+8 yp-1 w" sliderValueW " ReadOnly Center", sizeSliderValue)
+
+    configGui.Add("Text", "x" rightInnerX " y88 w100", "Button gap")
+    buttonGapHelperText := configGui.Add("Text", "x" (rightInnerX + 108) " y88 w120 c808080", "")
+    buttonGapSlider := configGui.Add("Slider", "x" rightInnerX " y106 w" sliderW " Range0-200 NoTicks ToolTip", gapSliderValue)
+    buttonGapDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2 w" sliderCheckW, "Default")
     buttonGapDefaultCheck.Value := ButtonGapOverride = "" ? 1 : 0
     buttonGapValueEdit := configGui.Add("Edit", "x+8 yp-2 w" sliderValueW " ReadOnly Center", gapSliderValue)
 
-    configGui.Add("Text", "xm y+8", "Corner radius")
-    cornerRadiusHelperText := configGui.Add("Text", "xm y+4 w" sliderLabelW " c808080", "")
-    cornerRadiusSlider := configGui.Add("Slider", "x+8 yp-2 w" sliderW " Range0-200 NoTicks ToolTip", cornerSliderValue)
-    cornerRadiusDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2", "Default")
+    configGui.Add("Text", "x" rightInnerX " y142 w100", "Corner radius")
+    cornerRadiusHelperText := configGui.Add("Text", "x" (rightInnerX + 108) " y142 w120 c808080", "")
+    cornerRadiusSlider := configGui.Add("Slider", "x" rightInnerX " y160 w" sliderW " Range0-200 NoTicks ToolTip", cornerSliderValue)
+    cornerRadiusDefaultCheck := configGui.Add("CheckBox", "x+8 yp+2 w" sliderCheckW, "Default")
     cornerRadiusDefaultCheck.Value := CornerRadius = 0 ? 1 : 0
     cornerRadiusValueEdit := configGui.Add("Edit", "x+8 yp-2 w" sliderValueW " ReadOnly Center", cornerSliderValue)
 
-    configGui.Add("Text", "xm y+8", "Mask color")
-    maskColorEdit := configGui.Add("Edit", "xm w140", MaskColor)
-    maskColorPickButton := configGui.Add("Button", "x+8 yp-2 w54", "Pick")
-    configGui.Add("Text", "xm y+2 c808080", "Transparent key color for the HUD window.")
+    configGui.Add("Text", "x" rightInnerX " y198 w100", "Mask color")
+    maskColorEdit := configGui.Add("Edit", "x" rightInnerX " y216 w112", MaskColor)
+    maskColorPickButton := configGui.Add("Button", "x+8 yp-2 w48", "Pick")
+    configGui.Add("Text", "x" (rightInnerX + 168) " y198 w76", "Frame color")
+    frameColorEdit := configGui.Add("Edit", "x" (rightInnerX + 168) " y216 w112", FrameColor)
+    frameColorPickButton := configGui.Add("Button", "x+8 yp-2 w48", "Pick")
 
-    configGui.Add("Text", "xm y+8", "Frame color")
-    frameColorEdit := configGui.Add("Edit", "xm w140", FrameColor)
-    frameColorPickButton := configGui.Add("Button", "x+8 yp-2 w54", "Pick")
-    configGui.Add("Text", "xm y+2 c808080", "Default outer frame color for button shells.")
-
-    configGui.Add("Text", "xm y+8", "Fill color")
-    fillColorEdit := configGui.Add("Edit", "xm w140", FillColor)
-    fillColorPickButton := configGui.Add("Button", "x+8 yp-2 w54", "Pick")
-    configGui.Add("Text", "xm y+2 c808080", "Default inner fill color behind button labels.")
-    configGui.Add("Text", "xm y+2 c808080", "Note: if fill color matches mask color, filled areas become transparent.")
-
-    showOuterBorderCheck := configGui.Add("CheckBox", "xm y+8", "Show outer border")
+    configGui.Add("Text", "x" rightInnerX " y252 w100", "Fill color")
+    fillColorEdit := configGui.Add("Edit", "x" rightInnerX " y270 w112", FillColor)
+    fillColorPickButton := configGui.Add("Button", "x+8 yp-2 w48", "Pick")
+    configGui.Add("Text", "x" (rightInnerX + 168) " y256 w88 h28 c808080", "Matching the mask makes fills transparent.")
+    showOuterBorderCheck := configGui.Add("CheckBox", "x" rightInnerX " y294 w140", "Show outer border")
     showOuterBorderCheck.Value := ShowOuterBorder ? 1 : 0
-    configGui.Add("Text", "xm y+2 c808080", "Toggle the thin outer frame ring around each button.")
 
-    configGui.Add("Text", "xm y+8", "Open position")
-    openPositionList := configGui.Add("DropDownList", "xm w180", openPositionOptions)
+    configGui.Add("GroupBox", "x" rightX " y320 w" rightW " h176", "Options")
+    configGui.Add("Text", "x" rightInnerX " y344 w100", "Toggle key")
+    toggleHotkeyEdit := configGui.Add("Edit", "x" (rightInnerX + 108) " y341 w120", ToggleHotkey)
+    configGui.Add("Text", "x" rightInnerX " y374 w100", "Open position")
+    openPositionList := configGui.Add("DropDownList", "x" (rightInnerX + 108) " y371 w120", openPositionOptions)
     ChooseDropDownValue(openPositionList, OpenPositionMode, openPositionOptions)
-    configGui.Add("Text", "xm y+2 c808080", "Choose where the HUD appears when you open it.")
-
-    configGui.Add("Text", "xm y+8", "Toggle key")
-    toggleHotkeyEdit := configGui.Add("Edit", "xm w140", ToggleHotkey)
-    configGui.Add("Text", "xm y+2 c808080", "Bare AHK key name used to open the HUD. RAlt + this key toggles edit mode.")
-
-    stealMouseInputCheck := configGui.Add("CheckBox", "xm y+10", "Steal mouse input")
+    stealMouseInputCheck := configGui.Add("CheckBox", "x" rightInnerX " y404 w170", "Steal mouse input")
     stealMouseInputCheck.Value := StealMouseInput ? 1 : 0
-    configGui.Add("Text", "xm y+2 c808080", "Block mouse clicks and movement from reaching the app underneath.")
-
-    showButtonKeysCheck := configGui.Add("CheckBox", "xm y+8", "Show key labels on buttons")
+    showButtonKeysCheck := configGui.Add("CheckBox", "x" rightInnerX " y430 w170", "Show key labels")
     showButtonKeysCheck.Value := ShowButtonKeys ? 1 : 0
-    configGui.Add("Text", "xm y+2 c808080", "Show or hide the action keys that appear under each button title.")
+    showPageNamesCheck := configGui.Add("CheckBox", "x" rightInnerX " y456 w170", "Show page names")
+    showPageNamesCheck.Value := ShowPageNames ? 1 : 0
+    configGui.Add("Text", "x" rightInnerX " y482 w100", "Name position")
+    pageNamePositionList := configGui.Add("DropDownList", "x" (rightInnerX + 108) " y479 w120", pageNamePositionOptions)
+    ChooseDropDownValue(pageNamePositionList, NormalizePageNamePosition(PageNamePosition), pageNamePositionOptions)
 
-    addPageButton := configGui.Add("Button", "xm y+14 w100", "Add Page")
-    deletePageButton := configGui.Add("Button", "x+8 w100", "Delete Page")
-    resetPageButton := configGui.Add("Button", "x+8 w100", "Reset Page")
-    openFolderButton := configGui.Add("Button", "xm y+8 w150", "Open File Location")
-    openImagesButton := configGui.Add("Button", "x+8 w120", "Open Images")
-    saveButton := configGui.Add("Button", "xm y+14 w120 Default", "Save")
-    closeButton := configGui.Add("Button", "x+12 w120", "Close")
+    saveButton := configGui.Add("Button", "x180 y510 w110 Default", "Save")
+    closeButton := configGui.Add("Button", "x302 y510 w110", "Close")
 
     ConfigDialogState := {
         gui: configGui,
@@ -2768,7 +2956,16 @@ OpenConfigEditor() {
         configFileNames: configFileNames,
         configDisplayNames: configDisplayNames,
         suppressConfigSwitch: false,
-        pageInfoText: pageInfoText,
+        suppressPageSelection: false,
+        suppressPageNameEdit: false,
+        currentPageText: currentPageText,
+        pageListView: pageListView,
+        pageNameEdit: pageNameEdit,
+        pageMoveUpButton: pageMoveUpButton,
+        pageMoveDownButton: pageMoveDownButton,
+        addPageButton: addPageButton,
+        deletePageButton: deletePageButton,
+        resetPageButton: resetPageButton,
         sizeSlider: sizeSlider,
         sizeHelperText: sizeHelperText,
         sizeValueEdit: sizeValueEdit,
@@ -2788,9 +2985,15 @@ OpenConfigEditor() {
         toggleHotkeyEdit: toggleHotkeyEdit,
         stealMouseInputCheck: stealMouseInputCheck,
         showButtonKeysCheck: showButtonKeysCheck,
-        originalState: CaptureConfigDialogPreviewState()
+        showPageNamesCheck: showPageNamesCheck,
+        pageNamePositionList: pageNamePositionList,
+        originalState: CaptureConfigDialogPreviewState(),
+        originalPages: CloneButtonPages(ButtonPages),
+        originalPageNames: ClonePageNames(PageNames),
+        originalPageIndex: CurrentPageIndex
     }
 
+    RefreshConfigDialogPageList()
     sizeSlider.OnEvent("Change", HandleConfigSizeSliderChange)
     buttonGapSlider.OnEvent("Change", HandleConfigButtonGapSliderChange)
     buttonGapDefaultCheck.OnEvent("Click", UpdateConfigDialogPreview)
@@ -2803,10 +3006,20 @@ OpenConfigEditor() {
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
     fillColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("fillColorEdit"))
+    openPositionList.OnEvent("Change", UpdateConfigDialogPreview)
+    toggleHotkeyEdit.OnEvent("Change", UpdateConfigDialogPreview)
+    stealMouseInputCheck.OnEvent("Click", UpdateConfigDialogPreview)
+    showButtonKeysCheck.OnEvent("Click", UpdateConfigDialogPreview)
+    showPageNamesCheck.OnEvent("Click", HandleConfigShowPageNamesToggle)
+    pageNamePositionList.OnEvent("Change", UpdateConfigDialogPreview)
     configList.OnEvent("Change", SwitchConfigFromDialog)
     newConfigButton.OnEvent("Click", NewConfigFromDialog)
     cloneConfigButton.OnEvent("Click", CloneConfigFromDialog)
     deleteConfigButton.OnEvent("Click", DeleteConfigFromDialog)
+    pageListView.OnEvent("ItemSelect", HandleConfigPageListSelect)
+    pageNameEdit.OnEvent("Change", HandlePageNameEditChange)
+    pageMoveUpButton.OnEvent("Click", HandlePageMoveUp)
+    pageMoveDownButton.OnEvent("Click", HandlePageMoveDown)
     addPageButton.OnEvent("Click", AddConfigPage)
     deletePageButton.OnEvent("Click", DeleteConfigPage)
     resetPageButton.OnEvent("Click", ResetConfigPage)
@@ -2816,19 +3029,37 @@ OpenConfigEditor() {
     closeButton.OnEvent("Click", CloseConfigEditor)
     configGui.OnEvent("Close", CloseConfigEditor)
     configGui.OnEvent("Escape", CloseConfigEditor)
-    UpdateConfigDialogPageInfo()
     ConfigDialogState.buttonGapUsesDefault := ButtonGapOverride = ""
+    UpdateConfigDialogPageInfo()
     UpdateConfigDialogGapHelper()
-    configGui.Show("AutoSize")
+    UpdateConfigDialogPageNamePositionState()
+    configGui.Show("w560 h552")
 }
 
 UpdateConfigDialogPageInfo() {
-    global ButtonPages, ConfigDialogState, CurrentPageIndex
+    global ButtonPages, ConfigDialogState, CurrentPageIndex, PageNames
 
     if !IsObject(ConfigDialogState)
         return
 
-    ConfigDialogState.pageInfoText.Text := "Page " CurrentPageIndex " of " ButtonPages.Length
+    CurrentPageIndex := Max(1, Min(CurrentPageIndex, ButtonPages.Length))
+    ConfigDialogState.currentPageText.Text := "Selected page: " CurrentPageIndex " of " ButtonPages.Length
+
+    ConfigDialogState.suppressPageSelection := true
+    Loop ConfigDialogState.pageListView.GetCount()
+        ConfigDialogState.pageListView.Modify(A_Index, "-Select")
+    ConfigDialogState.pageListView.Modify(CurrentPageIndex, "Select Focus Vis")
+    ConfigDialogState.suppressPageSelection := false
+
+    ConfigDialogState.suppressPageNameEdit := true
+    ConfigDialogState.pageNameEdit.Value := CurrentPageIndex <= PageNames.Length ? Format("{}", PageNames[CurrentPageIndex]) : ""
+    ConfigDialogState.suppressPageNameEdit := false
+
+    SetEditorControlEnabled(ConfigDialogState.pageNameEdit, ButtonPages.Length > 0)
+    SetEditorControlEnabled(ConfigDialogState.pageMoveUpButton, CurrentPageIndex > 1)
+    SetEditorControlEnabled(ConfigDialogState.pageMoveDownButton, CurrentPageIndex < ButtonPages.Length)
+    SetEditorControlEnabled(ConfigDialogState.deletePageButton, ButtonPages.Length > 1)
+    SetEditorControlEnabled(ConfigDialogState.resetPageButton, ButtonPages.Length > 0)
 }
 
 GetSelectedConfigDialogFileName() {
@@ -3032,12 +3263,13 @@ ReopenConfigEditor() {
 }
 
 AddConfigPage(*) {
-    global ButtonPages, CurrentPageIndex
+    global ButtonPages, CurrentPageIndex, PageNames
 
     try
     {
         ApplyConfigDialogValues()
         ButtonPages.Push(CreateEmptyPageLayout())
+        PageNames.Push("Page " ButtonPages.Length)
         CurrentPageIndex := ButtonPages.Length
         PersistButtonPages()
         ReopenConfigEditor()
@@ -3049,7 +3281,7 @@ AddConfigPage(*) {
 }
 
 DeleteConfigPage(*) {
-    global ButtonPages, CurrentPageIndex
+    global ButtonPages, CurrentPageIndex, PageNames
 
     if ButtonPages.Length <= 1
     {
@@ -3063,6 +3295,7 @@ DeleteConfigPage(*) {
     {
         ApplyConfigDialogValues()
         ButtonPages.RemoveAt(CurrentPageIndex)
+        PageNames.RemoveAt(CurrentPageIndex)
         if CurrentPageIndex > ButtonPages.Length
             CurrentPageIndex := ButtonPages.Length
         PersistButtonPages(true)
@@ -3098,10 +3331,13 @@ OpenConfigFileLocation(*) {
 }
 
 CloseConfigEditor(*) {
-    global ConfigDialogState
+    global ButtonPages, ConfigDialogState, CurrentPageIndex, PageNames
 
     if IsObject(ConfigDialogState)
     {
+        ButtonPages := CloneButtonPages(ConfigDialogState.originalPages)
+        PageNames := ClonePageNames(ConfigDialogState.originalPageNames)
+        CurrentPageIndex := Max(1, Min(ConfigDialogState.originalPageIndex, ButtonPages.Length))
         ApplyConfigDialogPreviewState(ConfigDialogState.originalState, false)
         DestroyConfigEditor()
     }
@@ -3128,8 +3364,25 @@ ShowPanel() {
     ShowCurrentPage(panelX, panelY)
 }
 
-CreatePageGui(layout) {
-    global EditMode, GuiH, GuiW, MaskColor, PageGuis, StealMouseInput
+CreatePageNameLabel(gui, pageIndex) {
+    global GuiH, GuiW, PageNamePosition, ShowPageNames
+
+    if !ShowPageNames
+        return
+
+    pageTitle := GetPageDisplayName(pageIndex)
+    if pageTitle = ""
+        return
+
+    labelH := GetPageNameDisplayHeight()
+    labelY := NormalizePageNamePosition(PageNamePosition) = "top" ? 2 : GuiH - labelH - 2
+    labelCtrl := gui.Add("Text", "x0 y" labelY " w" GuiW " h" labelH " Center +0x200 +BackgroundTrans", pageTitle)
+    labelCtrl.SetFont("s10 Bold", "Segoe UI")
+    labelCtrl.Opt("cFFFFFF")
+}
+
+CreatePageGui(pageIndex, layout) {
+    global EditMode, GuiH, GuiW, MaskColor, StealMouseInput
 
     guiOptions := "+AlwaysOnTop -Caption -DPIScale"
     if !StealMouseInput && !EditMode
@@ -3143,7 +3396,8 @@ CreatePageGui(layout) {
         CreateEditModeChrome(pageGui)
 
     textPlacements := []
-    BuildGrid(pageGui, PageGuis.Length + 1, layout, textPlacements)
+    BuildGrid(pageGui, pageIndex, layout, textPlacements)
+    CreatePageNameLabel(pageGui, pageIndex)
     pageGui.Show("w" GuiW " h" GuiH " Hide")
     FinalizeTextLayout(textPlacements)
     pageGui.OnEvent("Close", HidePanel)

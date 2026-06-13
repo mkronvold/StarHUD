@@ -41,6 +41,8 @@ OpenPositionMode := "always-right"
 StealMouseInput := true
 ButtonGapOverride := ""
 ShowOuterBorder := true
+ShowPageNames := false
+PageNamePosition := "top"
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
 CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", CenterLogoPath, "", FillColor)
@@ -79,4 +81,5 @@ Page1Layout := [
 ]
 
 ButtonPages := [Page1Layout]
+PageNames := ["Main"]
 ; === MANAGED BUTTON LAYOUT END ===
