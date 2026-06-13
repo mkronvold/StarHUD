@@ -1,18 +1,61 @@
 # Install StarHUD
 
+## Install AutoHotkey
+
+1. Install [AutoHotkey v2](https://www.autohotkey.com/).
+2. Make sure `.ahk` files open with AutoHotkey v2.
+
+## Download StarHUD
+
+AutoHotkey looks for scripts in `%USERPROFILE%\Documents\AutoHotkey\` by default, so a good install location is:
+
+```
+C:\Users\<YourName>\Documents\AutoHotkey\StarHUD\
+```
+
+You can also use any other folder (e.g. `C:\Tools\StarHUD\`).
+
+### Option A: Download the ZIP from GitHub
+
+1. Go to <https://github.com/mkronvold/StarHUD>.
+2. Click the green **Code** button and choose **Download ZIP**.
+3. Open the downloaded ZIP and extract the inner `StarHUD-main` folder.
+4. Move or rename it to your chosen location, e.g.:
+   ```
+   %USERPROFILE%\Documents\AutoHotkey\StarHUD\
+   ```
+
+### Option B: Clone with Git / GitHub CLI
+
+If you don't have Git and the GitHub CLI installed, you can install them with winget:
+
+```powershell
+winget install Git.Git
+winget install GitHub.cli
+```
+
+Then restart your terminal and authenticate:
+
+```powershell
+gh auth login
+```
+
+Clone the repository to your chosen folder:
+
+```powershell
+gh repo clone mkronvold/StarHUD "%USERPROFILE%\Documents\AutoHotkey\StarHUD"
+```
+
+To update later, pull the latest changes:
+
+```powershell
+cd "%USERPROFILE%\Documents\AutoHotkey\StarHUD"
+git pull
+```
+
 ## Files and folder layout
 
-Put all of the project files in one folder on your Windows machine. AutoHotkey defaults to:
-
-`%USERPROFILE%\Documents\AutoHotkey\`
-
-so a good default location is:
-
-`C:\Users\<YourName>\Documents\AutoHotkey\StarHUD\`
-
-You can also use any other folder, for example `C:\Tools\StarHUD\`.
-
-Keep these files together in that same folder:
+Keep these files together in the same folder:
 
 - `StarHUD.ahk`
 - `StarHUD-config.ahk`
@@ -22,11 +65,6 @@ Keep these files together in that same folder:
 - `StarHUD-center-logo.ico`
 
 `StarHUD.ahk` reads the active `StarHUD-config*.ahk` file from its own folder. If `StarHUD-user-config.ahk` is present, it uses that user-local selector file to remember the selected profile. If the file is missing, StarHUD starts with `StarHUD-config.ahk` and creates `StarHUD-user-config.ahk` automatically. Center-logo paths are resolved from that folder, and per-button images are resolved from the `images\` subfolder.
-
-## Install AutoHotkey
-
-1. Install [AutoHotkey v2](https://www.autohotkey.com/).
-2. Make sure `.ahk` files open with AutoHotkey v2.
 
 ## First launch
 
@@ -55,7 +93,9 @@ If you want to point the shortcut directly at AutoHotkey:
 1. Right-click the desktop and choose **New > Shortcut**.
 2. Use a target like:
 
-   `"C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" "C:\Tools\StarHUD\StarHUD.ahk"`
+   ```
+   "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" "%USERPROFILE%\Documents\AutoHotkey\StarHUD\StarHUD.ahk"
+   ```
 
 3. Name the shortcut `StarHUD`.
 
@@ -66,6 +106,10 @@ If you want to point the shortcut directly at AutoHotkey:
 3. Browse to `StarHUD-center-logo.ico` in your StarHUD folder.
 4. Apply the change.
 
-## Updating assets
+## Updating
 
-If you move StarHUD to a different folder later, move the `.ahk`, config, `images\`, `.png`, and `.ico` files together so the script and shortcut icon keep working.
+If you installed with **git clone**, just run `git pull` in the StarHUD folder.
+
+If you installed from a ZIP, download the latest ZIP and extract it over your existing folder. Your `StarHUD-user-config.ahk` and custom config files will not be overwritten since they are not in the repository.
+
+If you move StarHUD to a different folder, move the `.ahk`, config, `images\`, `.png`, and `.ico` files together so the script and shortcut icon keep working.
