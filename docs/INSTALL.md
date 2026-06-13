@@ -121,6 +121,22 @@ If you want a mouse button to open the HUD, map that button to your chosen key i
 
 You can also change the toggle key later from the in-app config dialog without editing the file.
 
+## Create your own config
+
+> **Highly recommended.** Create a fresh config file for your persistent, customized HUD so your changes aren't overwritten by updates.
+
+1. Copy one of the example configs (e.g. `StarHUD-config.ahk`) and name it something personal:
+
+   ```
+   StarHUD-config-mine.ahk
+   ```
+
+2. Open the config dialog (right-click the tray icon → **Config**) and switch to your new file using the **Config File** dropdown.
+
+3. All your layout changes, button customization, and appearance tweaks are now saved to this file. When StarHUD updates, the bundled example configs may be refreshed but your personal config remains untouched.
+
+StarHUD remembers your last active config in `StarHUD-user-config.ahk`, so it will automatically load your file on next launch.
+
 ## Create a desktop shortcut
 
 If `.ahk` files are already associated with AutoHotkey v2:
