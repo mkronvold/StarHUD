@@ -76,12 +76,13 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; You can still edit it manually, but button swaps and dialog edits will overwrite that managed block.
 ; titleLineMode is stored as "single" or "double" in each ButtonCfg(...) entry.
 ; === MANAGED BUTTON LAYOUT BEGIN ===
+
 Page1Layout := [
-    [ButtonCfg(), ButtonCfg("POWER`n-ON-", SendKey("u"), "FF0000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("POWER`n-OFF-", DoubleTapKey("u", 15), "FF0000", "FFFF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("ENGINE`n-ON-", SendKey("i"), "FF8000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENGINE`n-OFF-", DoubleTapKey("i", 15), "FF8000", "FF8000", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("SHIELD`n-ON-", SendKey("o"), "8080FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("SHIELD`n-OFF-", DoubleTapKey("o", 60), "8080FF", "8080FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("WEAPON`n-ON-", SendKey("p"), "FF00FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("WEAPON`n-OFF-", DoubleTapKey("p", 60), "FF00FF", "FF00FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()]
+    [ButtonCfg("MISSILE`nRESET", ChordKey("RAlt", "G", 30), "FFFF00", "FF8040", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("DECOY`n-", ChordKey("RAlt", "H", 30), "008080", "FF8040", false, "", "4A4A4A", "000000", "double")],
+    [ButtonCfg(), ButtonCfg("MISSILE`n+", ChordKey("LAlt", "G", 30), "FFFF00", "FFFF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg("DECOY`n+", ChordKey("LAlt", "H", 30), "008080", "00FF40", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("COUPLED", SendKey("c"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg("DECOY", SendKey("h"), "008080", "00FF40", true, "", "4A4A4A", "000000", "single"), ButtonCfg()],
+    [ButtonCfg("NIGHT`nVISION", ChordKey("RAlt", "l", 30), "454545", "00FFFF", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("NOISE", SendKey("j"), "008080", "00FFFF", true, "", "4A4A4A", "000000", "single")]
 ]
 
 Page2Layout := [
@@ -93,11 +94,11 @@ Page2Layout := [
 ]
 
 Page3Layout := [
-    [ButtonCfg("MISSILE`nRESET", ChordKey("RAlt", "G", 30), "FFFF00", "FF8040", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("DECOY`n-", ChordKey("RAlt", "H", 30), "008080", "FF8040", false, "", "4A4A4A", "000000", "double")],
-    [ButtonCfg(), ButtonCfg("MISSILE`n+", ChordKey("LAlt", "G", 30), "FFFF00", "FFFF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg("DECOY`n+", ChordKey("LAlt", "H", 30), "008080", "00FF40", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg(), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("COUPLED", SendKey("c"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg("DECOY", SendKey("h"), "008080", "00FF40", true, "", "4A4A4A", "000000", "single"), ButtonCfg()],
-    [ButtonCfg("NIGHT`nVISION", ChordKey("RAlt", "l", 30), "454545", "00FFFF", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("NOISE", SendKey("j"), "008080", "00FFFF", true, "", "4A4A4A", "000000", "single")]
+    [ButtonCfg(), ButtonCfg("POWER`n-ON-", SendKey("u"), "FF0000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("POWER`n-OFF-", DoubleTapKey("u", 15), "FF0000", "FFFF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("ENGINE`n-ON-", SendKey("i"), "FF8000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENGINE`n-OFF-", DoubleTapKey("i", 15), "FF8000", "FF8000", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("SHIELD`n-ON-", SendKey("o"), "8080FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("SHIELD`n-OFF-", DoubleTapKey("o", 60), "8080FF", "8080FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("WEAPON`n-ON-", SendKey("p"), "FF00FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("WEAPON`n-OFF-", DoubleTapKey("p", 60), "FF00FF", "FF00FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()]
 ]
 
 Page4Layout := [

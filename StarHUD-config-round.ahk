@@ -41,7 +41,7 @@ OpenPositionMode := "always-right"
 StealMouseInput := true
 ShowButtonKeys := true
 ToggleHotkey := "F20"
-ButtonGapOverride := 0
+ButtonGapOverride := 6
 ShowOuterBorder := true
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
