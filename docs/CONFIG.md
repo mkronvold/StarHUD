@@ -1,4 +1,4 @@
-# Configure StarHUD
+﻿# Configure StarHUD
 
 StarHUD supports both direct file editing in `StarHUD-config*.ahk` files and in-app editing through the HUD.
 
@@ -51,12 +51,14 @@ Edit mode is turned off automatically whenever the HUD is hidden or closed.
 - **Toggle key**: sets the bare AutoHotkey key name used to show or hide the HUD. `RAlt` + that same key toggles layout edit mode.
 - **Steal mouse input**: when enabled, the HUD captures mouse interaction so the underlying app does not receive clicks or movement while the panel is open.
 - **Show key labels on buttons**: shows or hides the action keys that appear under each button title.
+- **Show page names / Name position**: optionally shows the current page name above or below the HUD.
 - **Open Images**: opens the `images\` folder in Explorer and creates it if needed, so you can manage button images without hunting for the path manually.
 - **Live HUD preview**: size, corner radius, button gap override, outer border, and color changes update the open HUD immediately while the config dialog is open. **Save** keeps them; **Close** restores the original values.
 
 ### Page management
 
 - **Add Page**: creates another empty page with the center page-cycle button already in place.
+- **Page list / Page name**: rename pages, jump between them in the preview, and move them up or down in the page order.
 - **Delete Page**: removes the current page after confirmation and writes a `.bak` backup first.
 - **Reset Page**: clears the current page back to empty buttons after confirmation and writes a `.bak` backup first.
 - **Open File Location**: opens the folder that contains the StarHUD files and config.
