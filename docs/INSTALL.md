@@ -88,10 +88,13 @@ The only setting you need to configure before running StarHUD is the toggle key.
 
 ### Choosing a toggle key
 
+> **Note:** If you used the installer, it already prompted you for this key and configured all config files. You can re-run the installer at any time to change it.
+
 Use any bare [AutoHotkey key name](https://www.autohotkey.com/docs/v2/KeyList.htm). Good choices are keys you don't normally use:
 
 | Key | Description |
 | --- | --- |
+| `F20` | Default — an extended function key most keyboards don't have physically |
 | `F13`–`F24` | Extended function keys (many mice/keyboards can send these) |
 | `ScrollLock` | Rarely used on modern systems |
 | `Pause` | Pause/Break key |

@@ -32,11 +32,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "StarHUD.ahk"; DestDir: "{app}"; Flags: ignoreversion
-Source: "StarHUD-config.ahk"; DestDir: "{app}"; Flags: ignoreversion
-Source: "StarHUD-config-horizontal.ahk"; DestDir: "{app}"; Flags: ignoreversion
-Source: "StarHUD-config-vertical.ahk"; DestDir: "{app}"; Flags: ignoreversion
-Source: "StarHUD-config-round.ahk"; DestDir: "{app}"; Flags: ignoreversion
-Source: "StarHUD-config-x.ahk"; DestDir: "{app}"; Flags: ignoreversion
+Source: "StarHUD-config.ahk"; DestDir: "{app}"; Flags: ignoreversion confirmoverwrite
+Source: "StarHUD-config-horizontal.ahk"; DestDir: "{app}"; Flags: ignoreversion confirmoverwrite
+Source: "StarHUD-config-vertical.ahk"; DestDir: "{app}"; Flags: ignoreversion confirmoverwrite
+Source: "StarHUD-config-round.ahk"; DestDir: "{app}"; Flags: ignoreversion confirmoverwrite
+Source: "StarHUD-config-x.ahk"; DestDir: "{app}"; Flags: ignoreversion confirmoverwrite
 Source: "StarHUD-center-logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "images\*"; DestDir: "{app}\images"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -51,6 +51,11 @@ Filename: "{app}\StarHUD.ahk"; Description: "Launch StarHUD now"; Flags: nowait 
 const
   AHK_DOWNLOAD_URL = 'https://github.com/AutoHotkey/AutoHotkey/releases/latest/download/AutoHotkey_2.0_setup.exe';
   AHK_INSTALLER_NAME = 'AutoHotkey_2.0_setup.exe';
+
+var
+  HotkeyPage: TWizardPage;
+  HotkeyEdit: TNewEdit;
+  ChosenHotkey: String;
 
 // Check if AutoHotkey v2 is installed by looking for the exe
 function IsAutoHotkeyInstalled(): Boolean;
@@ -80,7 +85,6 @@ begin
   Result := False;
   TempFile := ExpandConstant('{tmp}\') + AHK_INSTALLER_NAME;
 
-  // Download AutoHotkey installer using PowerShell
   DownloadCmd := Format('-NoProfile -Command "Invoke-WebRequest -Uri ''%s'' -OutFile ''%s''"',
                         [AHK_DOWNLOAD_URL, TempFile]);
   if not Exec('powershell.exe', DownloadCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
@@ -97,7 +101,6 @@ begin
     Exit;
   end;
 
-  // Run AutoHotkey installer silently
   if Exec(TempFile, '/silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     if ResultCode = 0 then
@@ -112,6 +115,174 @@ begin
            mbError, MB_OK);
 
   DeleteFile(TempFile);
+end;
+
+// Read the current hotkey from an existing config file (for reinstalls)
+function ReadCurrentHotkey(): String;
+var
+  ConfigPath: String;
+  Lines: TArrayOfString;
+  I: Integer;
+  Line, Value: String;
+  P: Integer;
+begin
+  Result := 'F20';
+  ConfigPath := ExpandConstant('{userdocs}\AutoHotkey\StarHUD\StarHUD-config.ahk');
+  if not FileExists(ConfigPath) then
+    Exit;
+
+  if LoadStringsFromFile(ConfigPath, Lines) then
+  begin
+    for I := 0 to GetArrayLength(Lines) - 1 do
+    begin
+      Line := Trim(Lines[I]);
+      if Pos('ToggleHotkey', Line) = 1 then
+      begin
+        P := Pos(':=', Line);
+        if P > 0 then
+        begin
+          Value := Trim(Copy(Line, P + 2, Length(Line)));
+          // Strip quotes
+          if (Length(Value) >= 2) and (Value[1] = '"') then
+            Value := Copy(Value, 2, Length(Value) - 2);
+          if Value <> '' then
+            Result := Value;
+        end;
+        Break;
+      end;
+    end;
+  end;
+end;
+
+procedure OpenAhkKeyListPage(Sender: TObject);
+var
+  ErrorCode: Integer;
+begin
+  ShellExec('open', 'https://www.autohotkey.com/docs/v2/KeyList.htm', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+end;
+
+procedure InitializeWizard();
+var
+  InfoLabel: TNewStaticText;
+  ExamplesLabel: TNewStaticText;
+  LinkLabel: TNewStaticText;
+begin
+  HotkeyPage := CreateCustomPage(wpSelectDir,
+    'Toggle Key',
+    'Choose the key that shows and hides the StarHUD overlay.');
+
+  InfoLabel := TNewStaticText.Create(HotkeyPage);
+  InfoLabel.Parent := HotkeyPage.Surface;
+  InfoLabel.Top := 0;
+  InfoLabel.Left := 0;
+  InfoLabel.Width := HotkeyPage.SurfaceWidth;
+  InfoLabel.WordWrap := True;
+  InfoLabel.Caption :=
+    'Enter an AutoHotkey key name below. This is the key you will press to' + #13#10 +
+    'show/hide the HUD. Press RAlt + this key to toggle edit mode.';
+
+  HotkeyEdit := TNewEdit.Create(HotkeyPage);
+  HotkeyEdit.Parent := HotkeyPage.Surface;
+  HotkeyEdit.Top := InfoLabel.Top + InfoLabel.Height + 16;
+  HotkeyEdit.Left := 0;
+  HotkeyEdit.Width := 200;
+  HotkeyEdit.Font.Size := 11;
+  HotkeyEdit.Text := ReadCurrentHotkey();
+
+  ExamplesLabel := TNewStaticText.Create(HotkeyPage);
+  ExamplesLabel.Parent := HotkeyPage.Surface;
+  ExamplesLabel.Top := HotkeyEdit.Top + HotkeyEdit.Height + 20;
+  ExamplesLabel.Left := 0;
+  ExamplesLabel.Width := HotkeyPage.SurfaceWidth;
+  ExamplesLabel.WordWrap := True;
+  ExamplesLabel.Caption :=
+    'Examples of valid key names:' + #13#10 +
+    #13#10 +
+    '  F20              Extended function key (default)' + #13#10 +
+    '  F13              Another extended function key' + #13#10 +
+    '  ScrollLock       Scroll Lock key' + #13#10 +
+    '  Pause            Pause/Break key' + #13#10 +
+    '  PrintScreen      Print Screen key' + #13#10 +
+    '  CapsLock         Caps Lock key' + #13#10 +
+    #13#10 +
+    'Use a single key name. If you want a mouse button to open the HUD,' + #13#10 +
+    'map that button to this key in your mouse software (e.g. Logitech G HUB).';
+
+  LinkLabel := TNewStaticText.Create(HotkeyPage);
+  LinkLabel.Parent := HotkeyPage.Surface;
+  LinkLabel.Top := ExamplesLabel.Top + ExamplesLabel.Height + 12;
+  LinkLabel.Left := 0;
+  LinkLabel.Caption := 'View full list of valid key names (AutoHotkey docs)';
+  LinkLabel.Font.Color := clBlue;
+  LinkLabel.Font.Style := [fsUnderline];
+  LinkLabel.Cursor := crHand;
+  LinkLabel.OnClick := @OpenAhkKeyListPage;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = HotkeyPage.ID then
+  begin
+    ChosenHotkey := Trim(HotkeyEdit.Text);
+    if ChosenHotkey = '' then
+    begin
+      MsgBox('Please enter a toggle key name.', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
+
+// Update the ToggleHotkey line in a config file
+procedure PatchHotkeyInFile(FilePath: String);
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  Line: String;
+  P: Integer;
+begin
+  if not FileExists(FilePath) then
+    Exit;
+
+  if LoadStringsFromFile(FilePath, Lines) then
+  begin
+    for I := 0 to GetArrayLength(Lines) - 1 do
+    begin
+      Line := Lines[I];
+      if Pos('ToggleHotkey', Line) = 1 then
+      begin
+        P := Pos(':=', Line);
+        if P > 0 then
+        begin
+          Lines[I] := 'ToggleHotkey := "' + ChosenHotkey + '"';
+          Break;
+        end;
+      end;
+    end;
+    SaveStringsToFile(FilePath, Lines, False);
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  AppDir: String;
+  ConfigFiles: array of String;
+  I: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    AppDir := ExpandConstant('{app}');
+
+    SetArrayLength(ConfigFiles, 5);
+    ConfigFiles[0] := AppDir + '\StarHUD-config.ahk';
+    ConfigFiles[1] := AppDir + '\StarHUD-config-horizontal.ahk';
+    ConfigFiles[2] := AppDir + '\StarHUD-config-vertical.ahk';
+    ConfigFiles[3] := AppDir + '\StarHUD-config-round.ahk';
+    ConfigFiles[4] := AppDir + '\StarHUD-config-x.ahk';
+
+    for I := 0 to GetArrayLength(ConfigFiles) - 1 do
+      PatchHotkeyInFile(ConfigFiles[I]);
+  end;
 end;
 
 function InitializeSetup(): Boolean;
