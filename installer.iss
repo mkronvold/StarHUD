@@ -178,8 +178,8 @@ begin
   InfoLabel.Width := HotkeyPage.SurfaceWidth;
   InfoLabel.WordWrap := True;
   InfoLabel.Caption :=
-    'Enter an AutoHotkey key name below. This is the key you will press to' + #13#10 +
-    'show/hide the HUD. Press RAlt + this key to toggle edit mode.';
+    'Enter an AutoHotkey key name or combination below. This is the key you' + #13#10 +
+    'will press to show/hide the HUD. Press RAlt + this key to toggle edit mode.';
 
   HotkeyEdit := TNewEdit.Create(HotkeyPage);
   HotkeyEdit.Parent := HotkeyPage.Surface;
@@ -205,8 +205,19 @@ begin
     '  PrintScreen      Print Screen key' + #13#10 +
     '  CapsLock         Caps Lock key' + #13#10 +
     #13#10 +
-    'Use a single key name. If you want a mouse button to open the HUD,' + #13#10 +
-    'map that button to this key in your mouse software (e.g. Logitech G HUB).';
+    'Key combinations (modifier + key):' + #13#10 +
+    #13#10 +
+    '  <!c              Left Alt + C' + #13#10 +
+    '  >^Delete         Right Ctrl + Delete' + #13#10 +
+    '  ^F1              Ctrl + F1' + #13#10 +
+    '  +F5              Shift + F5' + #13#10 +
+    '  !Pause           Alt + Pause' + #13#10 +
+    #13#10 +
+    'Modifiers:  ^ = Ctrl   ! = Alt   + = Shift   # = Win' + #13#10 +
+    'Prefix < or > for left/right specific (e.g. <! = Left Alt)' + #13#10 +
+    #13#10 +
+    'Tip: If you want a mouse button to open the HUD,' + #13#10 +
+    'map that button to your chosen key in mouse software (e.g. Logitech G HUB).';
 
   LinkLabel := TNewStaticText.Create(HotkeyPage);
   LinkLabel.Parent := HotkeyPage.Surface;

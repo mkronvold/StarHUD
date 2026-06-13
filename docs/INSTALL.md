@@ -90,7 +90,9 @@ The only setting you need to configure before running StarHUD is the toggle key.
 
 > **Note:** If you used the installer, it already prompted you for this key and configured all config files. You can re-run the installer at any time to change it.
 
-Use any bare [AutoHotkey key name](https://www.autohotkey.com/docs/v2/KeyList.htm). Good choices are keys you don't normally use:
+Use any [AutoHotkey key name](https://www.autohotkey.com/docs/v2/KeyList.htm) or key combination. Good choices are keys you don't normally use:
+
+#### Single keys
 
 | Key | Description |
 | --- | --- |
@@ -101,7 +103,21 @@ Use any bare [AutoHotkey key name](https://www.autohotkey.com/docs/v2/KeyList.ht
 | `PrintScreen` | If you don't use it for screenshots |
 | `CapsLock` | If you've remapped it elsewhere |
 
-The value must be a single key name — not a combination. If you want a mouse button to open the HUD, map that button to the chosen key in your mouse software (e.g. Logitech G HUB, Razer Synapse).
+#### Key combinations (modifier + key)
+
+| Hotkey | Meaning |
+| --- | --- |
+| `<!c` | Left Alt + C |
+| `>^Delete` | Right Ctrl + Delete |
+| `^F1` | Ctrl + F1 |
+| `+F5` | Shift + F5 |
+| `!Pause` | Alt + Pause |
+
+**Modifier symbols:** `^` = Ctrl, `!` = Alt, `+` = Shift, `#` = Win. Prefix `<` or `>` to target the left or right key specifically (e.g. `<!` = Left Alt, `>^` = Right Ctrl).
+
+See the full [AutoHotkey key list](https://www.autohotkey.com/docs/v2/KeyList.htm) and [hotkey modifier reference](https://www.autohotkey.com/docs/v2/Hotkeys.htm#Symbols).
+
+If you want a mouse button to open the HUD, map that button to your chosen key in your mouse software (e.g. Logitech G HUB, Razer Synapse).
 
 You can also change the toggle key later from the in-app config dialog without editing the file.
 
