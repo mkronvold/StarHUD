@@ -7,15 +7,15 @@
 
 ## Download StarHUD
 
-AutoHotkey looks for scripts in `%USERPROFILE%\Documents\AutoHotkey\` by default, so a good install location is:
+### Option A: Use the installer (recommended)
 
-```
-C:\Users\<YourName>\Documents\AutoHotkey\StarHUD\
-```
+1. Download `StarHUD-Setup.exe` from the [latest release](https://github.com/mkronvold/StarHUD/releases).
+2. Run the installer — it will place StarHUD in your Documents\AutoHotkey\StarHUD folder and create a desktop shortcut with the correct icon.
+3. No admin privileges are required.
 
-You can also use any other folder (e.g. `C:\Tools\StarHUD\`).
+The installer auto-detects your Documents folder (including OneDrive-redirected Documents).
 
-### Option A: Download the ZIP from GitHub
+### Option B: Download the ZIP from GitHub
 
 1. Go to <https://github.com/mkronvold/StarHUD>.
 2. Click the green **Code** button and choose **Download ZIP**.
@@ -25,7 +25,7 @@ You can also use any other folder (e.g. `C:\Tools\StarHUD\`).
    %USERPROFILE%\Documents\AutoHotkey\StarHUD\
    ```
 
-### Option B: Clone with Git / GitHub CLI
+### Option C: Clone with Git / GitHub CLI
 
 If you don't have Git and the GitHub CLI installed, you can install them with winget:
 
