@@ -32,7 +32,7 @@ if !SizeProfiles.Has(Size)
     throw Error("Unknown Size profile: " Size ". Add it to SizeProfiles near the top of StarHUD-config.ahk.")
 
 ApplySizeProfile(SizeProfiles[Size])
-CornerRadius := 0
+CornerRadius := 122
 MaskColor := "010101"
 FrameColor := "4A4A4A"
 FillColor := "000000"
@@ -41,7 +41,7 @@ OpenPositionMode := "always-right"
 StealMouseInput := true
 ShowButtonKeys := true
 ToggleHotkey := "F20"
-ButtonGapOverride := 17
+ButtonGapOverride := 6
 ShowOuterBorder := true
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile

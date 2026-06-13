@@ -12,7 +12,8 @@ CoordMode "Mouse", "Screen"
 gdiplusStartupInput := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
 NumPut("UInt", 1, gdiplusStartupInput, 0)
 gdiplusStatus := DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", gdiplusStartupInput, "Ptr", 0)
-OnExit (*) => ((gdiplusStatus = 0 && pToken) ? DllCall("gdiplus\GdiplusShutdown", "Ptr", pToken) : 0)
+GdiplusToken := gdiplusStatus = 0 ? pToken : 0
+OnExit(ShutdownGdiplus)
 
 ButtonCfg(text := "", action := 0, borderColor := "00FF88", textColor := "", doubleBorder := false, imagePath := "", frameColorOverride := "", backgroundColor := "", titleLineMode := "", imageFitMode := "cover", showTextOnImage := false, showKeysOnImage := false) {
     global FillColor, FrameColor
@@ -370,6 +371,29 @@ CopiedButtonCfg := 0
 RegisteredToggleHotkey := ""
 RegisteredEditToggleHotkey := ""
 GuiPictureBitmaps := Map()
+
+ShutdownGdiplus(*) {
+    global ConfigDialogState, EditDialogState, GdiplusToken, PageGuis
+
+    if IsObject(ConfigDialogState)
+        DestroyConfigEditor()
+    if IsObject(EditDialogState)
+        DestroyButtonEditor()
+
+    for _, pageGui in PageGuis
+    {
+        ReleaseGuiPictureBitmaps(pageGui.Hwnd)
+        try pageGui.Destroy()
+    }
+    PageGuis := []
+
+    if !GdiplusToken
+        return
+
+    shutdownToken := GdiplusToken
+    GdiplusToken := 0
+    DllCall("gdiplus\GdiplusShutdown", "Ptr", shutdownToken)
+}
 
 IsPageCycleAction(action) {
     return IsObject(action) && action.HasOwnProp("isPageCycle") && action.isPageCycle
@@ -1582,7 +1606,7 @@ Clamp(value, minValue, maxValue) {
     return Max(minValue, Min(value, maxValue))
 }
 
-RebuildPageGuis(preserveVisible := true) {
+RebuildPageGuis(preserveVisible := true, activatePage := true) {
     global ButtonPages, CurrentPageIndex, PageGuis, PanelVisible
 
     shouldRestoreVisible := preserveVisible && PanelVisible && PageGuis.Length >= CurrentPageIndex
@@ -1600,7 +1624,7 @@ RebuildPageGuis(preserveVisible := true) {
         PageGuis.Push(CreatePageGui(layout))
 
     if shouldRestoreVisible
-        ShowCurrentPage(panelX, panelY)
+        ShowCurrentPage(panelX, panelY, activatePage)
     else
         PanelVisible := false
 }
@@ -2303,15 +2327,15 @@ CaptureConfigDialogPreviewState() {
     }
 }
 
-ApplyConfigDialogPreviewState(state) {
+ApplyConfigDialogPreviewState(state, activatePage := true) {
     global CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, PanelVisible, ShowButtonKeys, ShowOuterBorder, Size, StealMouseInput, ToggleHotkey
 
     oldFrameColor := FrameColor
     oldFillColor := FillColor
     oldToggleHotkey := ToggleHotkey
+    newCornerRadius := state.cornerRadius
 
     Size := NormalizeSizeKey(state.size)
-    CornerRadius := state.cornerRadius
     MaskColor := state.maskColor
     FrameColor := state.frameColor
     FillColor := state.fillColor
@@ -2322,14 +2346,15 @@ ApplyConfigDialogPreviewState(state) {
     ShowOuterBorder := state.showOuterBorder
 
     ApplyCurrentSizeProfile()
+    CornerRadius := newCornerRadius
     if oldToggleHotkey != ToggleHotkey
         RegisterToggleHotkeys(ToggleHotkey)
     RefreshCenterButtonTemplate()
     UpdateButtonsForDefaultColorChange(oldFrameColor, oldFillColor)
-    RebuildPageGuis(PanelVisible)
+    RebuildPageGuis(PanelVisible, activatePage)
 }
 
-BuildConfigDialogPreviewState(strict := true) {
+BuildConfigDialogPreviewState(strict := true, includeCornerRadiusPreview := true) {
     global ConfigDialogState, CornerRadius, FillColor, FrameColor, MaskColor, OpenPositionMode, ShowButtonKeys, ShowOuterBorder, Size, SizeProfiles, StealMouseInput, ToggleHotkey
 
     if !IsObject(ConfigDialogState)
@@ -2351,13 +2376,18 @@ BuildConfigDialogPreviewState(strict := true) {
         return 0
     }
 
-    try newCornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
-    catch as err
+    if includeCornerRadiusPreview
     {
-        if strict
-            throw err
-        return 0
+        try newCornerRadius := ParseEditorNumber(ConfigDialogState.cornerRadiusEdit.Value, 0)
+        catch as err
+        {
+            if strict
+                throw err
+            return 0
+        }
     }
+    else
+        newCornerRadius := CornerRadius
 
     try newMaskColor := NormalizeColorInput(ConfigDialogState.maskColorEdit.Value, MaskColor)
     catch as err
@@ -2405,13 +2435,30 @@ UpdateConfigDialogPreview(*) {
     
     try
     {
-        previewState := BuildConfigDialogPreviewState(false)
+        previewState := BuildConfigDialogPreviewState(false, false)
         if !IsObject(previewState)
             return
-        ApplyConfigDialogPreviewState(previewState)
+        ApplyConfigDialogPreviewState(previewState, false)
     }
     catch
     {
+    }
+}
+
+SetConfigDialogCornerRadiusPreview(*) {
+    global ConfigDialogState
+
+    if !IsObject(ConfigDialogState)
+        return
+
+    try
+    {
+        previewState := BuildConfigDialogPreviewState(true, true)
+        ApplyConfigDialogPreviewState(previewState, false)
+    }
+    catch as err
+    {
+        MsgBox(err.Message, "StarHUD Config Error")
     }
 }
 
@@ -2444,6 +2491,7 @@ OpenConfigEditor() {
 
     configGui.Add("Text", "xm y+8", "Corner radius")
     cornerRadiusEdit := configGui.Add("Edit", "xm w140", CornerRadius)
+    cornerRadiusSetButton := configGui.Add("Button", "x+8 yp-2 w54", "Set")
     configGui.Add("Text", "xm y+2 c808080", "Rounds button corners. Use 0 for square edges.")
 
     configGui.Add("Text", "xm y+8", "Mask color")
@@ -2511,15 +2559,11 @@ OpenConfigEditor() {
     }
 
     sizeList.OnEvent("Change", UpdateConfigDialogPreview)
-    cornerRadiusEdit.OnEvent("Change", UpdateConfigDialogPreview)
-    cornerRadiusEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     maskColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
-    maskColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     frameColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
-    frameColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     fillColorEdit.OnEvent("Change", UpdateConfigDialogPreview)
-    fillColorEdit.OnEvent("LoseFocus", UpdateConfigDialogPreview)
     showOuterBorderCheck.OnEvent("Click", UpdateConfigDialogPreview)
+    cornerRadiusSetButton.OnEvent("Click", SetConfigDialogCornerRadiusPreview)
     maskColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("maskColorEdit"))
     frameColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("frameColorEdit"))
     fillColorPickButton.OnEvent("Click", PickConfigDialogColor.Bind("fillColorEdit"))
@@ -2538,7 +2582,6 @@ OpenConfigEditor() {
     configGui.OnEvent("Escape", CloseConfigEditor)
     UpdateConfigDialogPageInfo()
     configGui.Show("AutoSize")
-    SetTimer UpdateConfigDialogPreview, 50
 }
 
 UpdateConfigDialogPageInfo() {
@@ -2729,7 +2772,7 @@ ApplyConfigDialogValues() {
         return
 
     appliedState := BuildConfigDialogPreviewState(true)
-    ApplyConfigDialogPreviewState(appliedState)
+    ApplyConfigDialogPreviewState(appliedState, false)
 }
 
 SaveConfigEditor(*) {
@@ -2821,7 +2864,7 @@ CloseConfigEditor(*) {
 
     if IsObject(ConfigDialogState)
     {
-        ApplyConfigDialogPreviewState(ConfigDialogState.originalState)
+        ApplyConfigDialogPreviewState(ConfigDialogState.originalState, false)
         DestroyConfigEditor()
     }
 }
@@ -2829,7 +2872,6 @@ CloseConfigEditor(*) {
 DestroyConfigEditor() {
     global ConfigDialogState
 
-    SetTimer UpdateConfigDialogPreview, 0
     if IsObject(ConfigDialogState)
     {
         try ConfigDialogState.gui.Destroy()
@@ -2879,19 +2921,19 @@ HideAllPages() {
         pageGui.Hide()
 }
 
-ShowCurrentPage(panelX, panelY) {
+ShowCurrentPage(panelX, panelY, activatePage := true) {
     global CurrentPageIndex, EditMode, GuiH, GuiW, PageGuis, PanelVisible, StealMouseInput
 
     HideAllPages()
     pageGui := PageGuis[CurrentPageIndex]
     showOptions := "x" panelX " y" panelY " w" GuiW " h" GuiH
-    if !StealMouseInput && !EditMode
+    if !activatePage || (!StealMouseInput && !EditMode)
         showOptions := "NA " showOptions
 
     pageGui.Show(showOptions)
     WinSetAlwaysOnTop 1, "ahk_id " pageGui.Hwnd
     WinMoveTop "ahk_id " pageGui.Hwnd
-    if StealMouseInput || EditMode
+    if activatePage && (StealMouseInput || EditMode)
         WinActivate("ahk_id " pageGui.Hwnd)
     PanelVisible := true
 }

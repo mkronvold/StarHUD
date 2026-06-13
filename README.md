@@ -6,12 +6,15 @@ StarHUD is an AutoHotkey v2 overlay for Star Citizen that opens a configurable 5
 
 - [Install guide](docs/INSTALL.md)
 - [Configuration guide](docs/CONFIG.md)
+- [Examples gallery](docs/EXAMPLES.md)
 
 ## Screenshots
 
 ### HUD overlay
 
-![StarHUD HUD overlay](docs/starhud-hud-v2.png)
+![StarHUD HUD overlay](docs/StarHUD-config-default.png)
+
+More layout examples are in the [examples gallery](docs/EXAMPLES.md).
 
 ### Config dialog
 

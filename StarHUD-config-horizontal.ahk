@@ -39,7 +39,10 @@ FillColor := "000000"
 ; OpenPositionMode: "auto-split", "mouse", "always-left", or "always-right"
 OpenPositionMode := "always-right"
 StealMouseInput := true
-ShowOuterBorder := true
+ShowButtonKeys := true
+ToggleHotkey := "F20"
+ButtonGapOverride := ""
+ShowOuterBorder := false
 CenterLogoFile := "images\StarHUD-center-logo-200x200.png"
 CenterLogoPath := CenterLogoFile = "" ? "" : A_ScriptDir "\" CenterLogoFile
 CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", CenterLogoPath, "", FillColor)
@@ -52,10 +55,15 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; Set OpenPositionMode to "auto-split", "mouse", "always-left", or "always-right".
 ; Set StealMouseInput to true to activate the HUD while it is shown so clicks/mouse movement do not reach the app underneath.
 ; Set StealMouseInput to false to keep the previous non-activating overlay behavior.
+
+; Set ShowButtonKeys to true to show the action keys under button titles, or false to hide them.
+; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
+; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.
 ; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
 ; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
+
 ; Press ToggleHotkey to show or hide the HUD. Press RAlt+ToggleHotkey to toggle edit mode.
 ; In edit mode, plain-click the center button to open the config dialog.
 ; In edit mode, RAlt+click the center button to go to the next page.
@@ -68,13 +76,38 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; You can still edit it manually, but button swaps and dialog edits will overwrite that managed block.
 ; titleLineMode is stored as "single" or "double" in each ButtonCfg(...) entry.
 ; === MANAGED BUTTON LAYOUT BEGIN ===
+
 Page1Layout := [
+    [ButtonCfg("MISSILE`nRESET", ChordKey("RAlt", "G", 30), "FFFF00", "FF8040", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("DECOY`n-", ChordKey("RAlt", "H", 30), "008080", "FF8040", false, "", "4A4A4A", "000000", "double")],
+    [ButtonCfg(), ButtonCfg("MISSILE`n+", ChordKey("LAlt", "G", 30), "FFFF00", "FFFF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg("DECOY`n+", ChordKey("LAlt", "H", 30), "008080", "00FF40", false, "", "4A4A4A", "000000", "double"), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("COUPLED", SendKey("c"), "00FF88", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg("DECOY", SendKey("h"), "008080", "00FF40", true, "", "4A4A4A", "000000", "single"), ButtonCfg()],
+    [ButtonCfg("NIGHT`nVISION", ChordKey("RAlt", "l", 30), "454545", "00FFFF", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg("NOISE", SendKey("j"), "008080", "00FFFF", true, "", "4A4A4A", "000000", "single")]
+]
+
+Page2Layout := [
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("ATC", ChordKey("LAlt", "N", 30), "00FF00", "00FF00", false, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg("NAV", SendKey("b"), "0000FF", "00FF88", false, "", "4A4A4A", "000000", "single"), ButtonCfg("VTOL", SendKey("k"), "00FF00", "00FF00", false, "", "4A4A4A", "000000", "single"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg("GEAR", SendKey("n"), "00FF00", "8080FF", false, "", "4A4A4A", "000000", "single"), ButtonCfg("DEPLOY", ChordKey("LAlt", "K", 30), "FFFF00", "FF00FF", true, "", "4A4A4A", "000000", "single")],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("DOCK", ChordKey("RAlt", "N", 30), "00FF00", "00FF00", true, "", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()]
+]
+
+Page3Layout := [
     [ButtonCfg(), ButtonCfg("POWER`n-ON-", SendKey("u"), "FF0000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("POWER`n-OFF-", DoubleTapKey("u", 15), "FF0000", "FFFF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("ENGINE`n-ON-", SendKey("i"), "FF8000", "00FF00", true, "", "4A4A4A", "000000", "double"), ButtonCfg("ENGINE`n-OFF-", DoubleTapKey("i", 15), "FF8000", "FF8000", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
-    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), CenterButtonCfg, ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg("FLIGHT`nREADY", SendKey("r"), "00FF88", "00FF88", true, "", "4A4A4A", "000000", "double"), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("SHIELD`n-ON-", SendKey("o"), "8080FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("SHIELD`n-OFF-", DoubleTapKey("o", 60), "8080FF", "8080FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
     [ButtonCfg(), ButtonCfg("WEAPON`n-ON-", SendKey("p"), "FF00FF", "00FF00", false, "", "4A4A4A", "000000", "double"), ButtonCfg("WEAPON`n-OFF-", DoubleTapKey("p", 60), "FF00FF", "FF00FF", true, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()]
 ]
 
-ButtonPages := [Page1Layout]
+Page4Layout := [
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("MUTE`nSPEAKERS", SendKey("F19"), "8000FF", "8000FF", false, "", "4A4A4A", "000000", "double"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", "StarHUD-center-logo-200x200.png", "4A4A4A", "000000", "single"), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()],
+    [ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg(), ButtonCfg()]
+]
+
+ButtonPages := [Page1Layout, Page2Layout, Page3Layout, Page4Layout]
 ; === MANAGED BUTTON LAYOUT END ===
