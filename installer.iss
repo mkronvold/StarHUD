@@ -197,25 +197,25 @@ begin
   ExamplesLabel.WordWrap := True;
   ExamplesLabel.Caption :=
     'Examples of valid key names:' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     '  F20              Extended function key (default)' + #13#10 +
     '  F13              Another extended function key' + #13#10 +
     '  ScrollLock       Scroll Lock key' + #13#10 +
     '  Pause            Pause/Break key' + #13#10 +
     '  PrintScreen      Print Screen key' + #13#10 +
     '  CapsLock         Caps Lock key' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     'Key combinations (modifier + key):' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     '  <!c              Left Alt + C' + #13#10 +
     '  >^Delete         Right Ctrl + Delete' + #13#10 +
     '  ^F1              Ctrl + F1' + #13#10 +
     '  +F5              Shift + F5' + #13#10 +
     '  !Pause           Alt + Pause' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     'Modifiers:  ^ = Ctrl   ! = Alt   + = Shift   # = Win' + #13#10 +
     'Prefix < or > for left/right specific (e.g. <! = Left Alt)' + #13#10 +
-    #13#10 +
+    '' + #13#10 +
     'Tip: If you want a mouse button to open the HUD,' + #13#10 +
     'map that button to your chosen key in mouse software (e.g. Logitech G HUB).';
 
