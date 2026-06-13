@@ -62,6 +62,8 @@ CenterButtonCfg := ButtonCfg("", PageCycleAction(), "FFFFFF", "FFFFFF", "none", 
 ; Set ToggleHotkey to a bare AHK key name like "F20", "F13", or "ScrollLock". RAlt+that key toggles edit mode.
 ; Leave ButtonGapOverride blank to use the selected size profile gap, or set it to a whole number to override the gap globally.
 ; Set ShowOuterBorder to true to keep the thin outer frame ring around buttons, or false to hide it.
+; Set ShowPageNames to true to show the current page name above or below the HUD, or false to hide it.
+; Set PageNamePosition to "top" or "bottom" to choose where page names appear when enabled.
 ; Put per-button images in the images folder or its subfolders. The editor saves button-image references relative to images automatically.
 ; Set CenterLogoFile above to change the center icon.
 ; Set the center button on each page to CenterButtonCfg to keep page cycling enabled.
