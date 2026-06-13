@@ -10,7 +10,7 @@ Example HUD layouts using different config profiles.
 | Vertical bar | X |
 | --- | --- |
 | ![StarHUD vertical bar config](StarHUD-config-vertical-bar.png) | ![StarHUD X config](StarHUD-config-x.png) |
-| [StarHUD-config-vertical.ahk](../StarHUD-config-vertical.ahk) | [StarHUD-config.ahk](../StarHUD-config.ahk) |
+| [StarHUD-config-vertical.ahk](../StarHUD-config-vertical.ahk) | [StarHUD-config-x.ahk](../StarHUD-config-x.ahk) |
 
 | Round | |
 | --- | --- |
